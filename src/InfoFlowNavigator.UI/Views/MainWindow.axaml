@@ -10,15 +10,54 @@
         MinWidth="980"
         MinHeight="680"
         Title="{Binding Title}"
+        Background="#F3F6FB"
+        Foreground="#14213D"
         mc:Ignorable="d"
         d:DesignWidth="1180"
         d:DesignHeight="780">
+  <Window.Styles>
+    <Style Selector="TextBlock.section-title">
+      <Setter Property="Foreground" Value="#14213D" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="#243B53" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="#486581" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="Background" Value="#1F5AA6" />
+      <Setter Property="BorderBrush" Value="#174987" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12,8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="Foreground" Value="#16324F" />
+      <Setter Property="Background" Value="#DCE8F5" />
+      <Setter Property="BorderBrush" Value="#9FB9D4" />
+    </Style>
+    <Style Selector="Button.accent">
+      <Setter Property="Background" Value="#0F766E" />
+      <Setter Property="BorderBrush" Value="#0B5D57" />
+    </Style>
+    <Style Selector="TextBox, ComboBox">
+      <Setter Property="Foreground" Value="#14213D" />
+      <Setter Property="Background" Value="#FFFFFF" />
+      <Setter Property="BorderBrush" Value="#9FB3C8" />
+      <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+  </Window.Styles>
   <Grid RowDefinitions="Auto,Auto,*" Margin="20">
     <StackPanel Spacing="6">
       <TextBlock FontSize="30"
                  FontWeight="SemiBold"
                  Text="{Binding Title}" />
-      <TextBlock Foreground="#52606D"
+      <TextBlock Classes="muted"
                  FontSize="16"
                  Text="{Binding Subtitle}" />
     </StackPanel>
@@ -26,45 +65,49 @@
     <Border Grid.Row="1"
             Margin="0,18,0,18"
             Padding="14"
-            Background="#E7EEF7"
+            Background="#DCE8F5"
+            BorderBrush="#B8CCE3"
+            BorderThickness="1"
             CornerRadius="10">
-      <TextBlock Text="{Binding StatusMessage}"
+      <TextBlock Foreground="#16324F"
+                 FontWeight="SemiBold"
+                 Text="{Binding StatusMessage}"
                  TextWrapping="Wrap" />
     </Border>
 
     <Grid Grid.Row="2" ColumnDefinitions="360,*" ColumnSpacing="18">
       <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16">
-          <Border Padding="16" Background="#F8FAFC" CornerRadius="12">
+          <Border Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
             <StackPanel Spacing="10">
-              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Workspace" />
-              <TextBlock Text="Name" />
+              <TextBlock Classes="section-title" FontSize="18" Text="Workspace" />
+              <TextBlock Classes="label" Text="Name" />
               <TextBox Text="{Binding WorkspaceName}" PlaceholderText="Workspace name" />
-              <TextBlock Text="Path" />
+              <TextBlock Classes="label" Text="Path" />
               <TextBox Text="{Binding WorkspacePath}" PlaceholderText="workspace.ifn.json" />
               <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                <Button Content="New" Click="CreateNewWorkspace_Click" />
-                <Button Grid.Column="1" Content="Open" Click="OpenWorkspace_Click" />
-                <Button Grid.Column="2" Content="Save" Click="SaveWorkspace_Click" />
+                <Button Classes="secondary" Content="New" Click="CreateNewWorkspace_Click" />
+                <Button Grid.Column="1" Classes="secondary" Content="Open" Click="OpenWorkspace_Click" />
+                <Button Grid.Column="2" Classes="accent" Content="Save" Click="SaveWorkspace_Click" />
               </Grid>
             </StackPanel>
           </Border>
 
-          <Border Padding="16" Background="#FFF9ED" CornerRadius="12">
+          <Border Padding="16" Background="#FFF8E8" BorderBrush="#EBCB8B" BorderThickness="1" CornerRadius="12">
             <StackPanel Spacing="10">
-              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Add Entity" />
-              <TextBlock Text="Name" />
+              <TextBlock Classes="section-title" FontSize="18" Text="Add Entity" />
+              <TextBlock Classes="label" Text="Name" />
               <TextBox Text="{Binding EntityName}" PlaceholderText="Acme Corp" />
-              <TextBlock Text="Type" />
+              <TextBlock Classes="label" Text="Type" />
               <TextBox Text="{Binding EntityType}" PlaceholderText="Organization" />
               <Button Content="Add Entity" Click="AddEntity_Click" />
             </StackPanel>
           </Border>
 
-          <Border Padding="16" Background="#F3F0FF" CornerRadius="12">
+          <Border Padding="16" Background="#EAF2FF" BorderBrush="#B8CCE3" BorderThickness="1" CornerRadius="12">
             <StackPanel Spacing="10">
-              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Add Relationship" />
-              <TextBlock Text="Source" />
+              <TextBlock Classes="section-title" FontSize="18" Text="Add Relationship" />
+              <TextBlock Classes="label" Text="Source" />
               <ComboBox ItemsSource="{Binding RelationshipEntityOptions}"
                         SelectedItem="{Binding SelectedSourceEntity}">
                 <ComboBox.ItemTemplate>
@@ -73,7 +116,7 @@
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <TextBlock Text="Target" />
+              <TextBlock Classes="label" Text="Target" />
               <ComboBox ItemsSource="{Binding RelationshipEntityOptions}"
                         SelectedItem="{Binding SelectedTargetEntity}">
                 <ComboBox.ItemTemplate>
@@ -82,9 +125,9 @@
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <TextBlock Text="Type" />
+              <TextBlock Classes="label" Text="Type" />
               <TextBox Text="{Binding RelationshipType}" PlaceholderText="connected_to" />
-              <Button Content="Add Relationship" Click="AddRelationship_Click" />
+              <Button Classes="accent" Content="Add Relationship" Click="AddRelationship_Click" />
             </StackPanel>
           </Border>
         </StackPanel>
@@ -113,37 +156,37 @@
         </Border>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="18">
-          <Border Padding="16" Background="#F8FAFC" CornerRadius="12">
+          <Border Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
             <StackPanel Spacing="8">
-              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Workspace Snapshot" />
-              <TextBlock Text="{Binding WorkspaceCreatedAt, StringFormat='Created: {0}'}" />
-              <TextBlock Text="{Binding WorkspaceEntityCount, StringFormat='Entities: {0}'}" />
-              <TextBlock Text="{Binding WorkspaceRelationshipCount, StringFormat='Relationships: {0}'}" />
+              <TextBlock Classes="section-title" FontSize="18" Text="Workspace Snapshot" />
+              <TextBlock Foreground="#243B53" Text="{Binding WorkspaceCreatedAt, StringFormat='Created: {0}'}" />
+              <TextBlock Foreground="#243B53" Text="{Binding WorkspaceEntityCount, StringFormat='Entities: {0}'}" />
+              <TextBlock Foreground="#243B53" Text="{Binding WorkspaceRelationshipCount, StringFormat='Relationships: {0}'}" />
             </StackPanel>
           </Border>
 
-          <Border Grid.Column="1" Padding="16" Background="#F8FAFC" CornerRadius="12">
+          <Border Grid.Column="1" Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
             <StackPanel Spacing="8">
-              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Slice Boundaries" />
-              <TextBlock Text="JSON workspace persistence" />
-              <TextBlock Text="Entity and relationship editing" />
-              <TextBlock Text="No graph, timeline, or importer workflows yet" TextWrapping="Wrap" />
+              <TextBlock Classes="section-title" FontSize="18" Text="Slice Boundaries" />
+              <TextBlock Foreground="#243B53" Text="JSON workspace persistence" />
+              <TextBlock Foreground="#243B53" Text="Entity and relationship editing" />
+              <TextBlock Foreground="#243B53" Text="No graph, timeline, or importer workflows yet" TextWrapping="Wrap" />
             </StackPanel>
           </Border>
         </Grid>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="18">
-          <Border Padding="16" Background="#FFFFFF" CornerRadius="12">
+          <Border Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
             <StackPanel Spacing="10">
-              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Entities" />
+              <TextBlock Classes="section-title" FontSize="18" Text="Entities" />
               <ItemsControl ItemsSource="{Binding Entities}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:EntitySummaryViewModel">
-                    <Border Margin="0,0,0,8" Padding="10" Background="#F8FAFC" CornerRadius="8">
+                    <Border Margin="0,0,0,8" Padding="10" Background="#EEF4FB" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="8">
                       <StackPanel>
-                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                        <TextBlock FontWeight="SemiBold" Foreground="#14213D" Text="{Binding DisplayName}" />
                         <TextBlock FontSize="12"
-                                   Foreground="#52606D"
+                                   Foreground="#486581"
                                    Text="{Binding Id, StringFormat='Id: {0}'}"
                                    TextWrapping="Wrap" />
                       </StackPanel>
@@ -154,17 +197,17 @@
             </StackPanel>
           </Border>
 
-          <Border Grid.Column="1" Padding="16" Background="#FFFFFF" CornerRadius="12">
+          <Border Grid.Column="1" Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
             <StackPanel Spacing="10">
-              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Relationships" />
+              <TextBlock Classes="section-title" FontSize="18" Text="Relationships" />
               <ItemsControl ItemsSource="{Binding Relationships}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:RelationshipSummaryViewModel">
-                    <Border Margin="0,0,0,8" Padding="10" Background="#F8FAFC" CornerRadius="8">
+                    <Border Margin="0,0,0,8" Padding="10" Background="#EEF4FB" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="8">
                       <StackPanel>
-                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                        <TextBlock FontWeight="SemiBold" Foreground="#14213D" Text="{Binding DisplayName}" TextWrapping="Wrap" />
                         <TextBlock FontSize="12"
-                                   Foreground="#52606D"
+                                   Foreground="#486581"
                                    Text="{Binding Id, StringFormat='Id: {0}'}"
                                    TextWrapping="Wrap" />
                       </StackPanel>
