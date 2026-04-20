@@ -5,83 +5,177 @@
         xmlns:vm="using:InfoFlowNavigator.UI.ViewModels"
         x:Class="InfoFlowNavigator.UI.Views.MainWindow"
         x:DataType="vm:ShellViewModel"
-        Width="960"
-        Height="640"
-        MinWidth="760"
-        MinHeight="520"
+        Width="1180"
+        Height="780"
+        MinWidth="980"
+        MinHeight="680"
         Title="{Binding Title}"
         mc:Ignorable="d"
-        d:DesignWidth="960"
-        d:DesignHeight="640">
-  <Grid RowDefinitions="Auto,Auto,*" Margin="24">
+        d:DesignWidth="1180"
+        d:DesignHeight="780">
+  <Grid RowDefinitions="Auto,Auto,*" Margin="20">
     <StackPanel Spacing="6">
-      <TextBlock FontSize="28"
+      <TextBlock FontSize="30"
                  FontWeight="SemiBold"
                  Text="{Binding Title}" />
-      <TextBlock FontSize="16"
-                 Foreground="#52606D"
+      <TextBlock Foreground="#52606D"
+                 FontSize="16"
                  Text="{Binding Subtitle}" />
     </StackPanel>
 
     <Border Grid.Row="1"
-            Margin="0,24,0,24"
-            Padding="18"
-            Background="#112B3C"
-            CornerRadius="12">
-      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-        <TextBlock FontSize="20"
-                   FontWeight="SemiBold"
-                   Foreground="White"
-                   Text="{Binding Workspace.Name}" />
-        <TextBlock Grid.Row="1"
-                   Margin="0,8,0,0"
-                   Foreground="#D9E2EC"
-                   Text="Bootstrap shell for the first workspace-centric vertical slice." />
-        <TextBlock Grid.Column="1"
-                   Grid.RowSpan="2"
-                   VerticalAlignment="Center"
-                   Foreground="#9FB3C8"
-                   Text="JSON-first" />
-      </Grid>
+            Margin="0,18,0,18"
+            Padding="14"
+            Background="#E7EEF7"
+            CornerRadius="10">
+      <TextBlock Text="{Binding StatusMessage}"
+                 TextWrapping="Wrap" />
     </Border>
 
-    <Grid Grid.Row="2" ColumnDefinitions="2*,3*">
-      <Border Margin="0,0,12,0"
-              Padding="18"
-              Background="#F5F7FA"
-              CornerRadius="12">
-        <StackPanel Spacing="12">
-          <TextBlock FontSize="18"
-                     FontWeight="SemiBold"
-                     Text="Workspace Snapshot" />
-          <TextBlock Text="{Binding Workspace.Id, StringFormat='Workspace Id: {0}'}" TextWrapping="Wrap" />
-          <TextBlock Text="{Binding Workspace.CreatedAtUtc, StringFormat='Created (UTC): {0:yyyy-MM-dd HH:mm:ss}'}" />
-          <TextBlock Text="{Binding Workspace.Entities.Count, StringFormat='Entities: {0}'}" />
-          <TextBlock Text="{Binding Workspace.Relationships.Count, StringFormat='Relationships: {0}'}" />
-          <TextBlock Text="{Binding Workspace.Events.Count, StringFormat='Events: {0}'}" />
-          <TextBlock Text="{Binding Workspace.Sources.Count, StringFormat='Sources: {0}'}" />
-        </StackPanel>
-      </Border>
+    <Grid Grid.Row="2" ColumnDefinitions="360,*" ColumnSpacing="18">
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16">
+          <Border Padding="16" Background="#F8FAFC" CornerRadius="12">
+            <StackPanel Spacing="10">
+              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Workspace" />
+              <TextBlock Text="Name" />
+              <TextBox Text="{Binding WorkspaceName}" PlaceholderText="Workspace name" />
+              <TextBlock Text="Path" />
+              <TextBox Text="{Binding WorkspacePath}" PlaceholderText="workspace.ifn.json" />
+              <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                <Button Content="New" Click="CreateNewWorkspace_Click" />
+                <Button Grid.Column="1" Content="Open" Click="OpenWorkspace_Click" />
+                <Button Grid.Column="2" Content="Save" Click="SaveWorkspace_Click" />
+              </Grid>
+            </StackPanel>
+          </Border>
 
-      <Border Grid.Column="1"
-              Margin="12,0,0,0"
-              Padding="18"
-              Background="#FFFDF7"
-              CornerRadius="12">
-        <StackPanel Spacing="12">
-          <TextBlock FontSize="18"
-                     FontWeight="SemiBold"
-                     Text="Planned Capabilities" />
-          <ItemsControl ItemsSource="{Binding PlannedCapabilities}">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding ., StringFormat='• {0}'}"
-                           TextWrapping="Wrap" />
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <Border Padding="16" Background="#FFF9ED" CornerRadius="12">
+            <StackPanel Spacing="10">
+              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Add Entity" />
+              <TextBlock Text="Name" />
+              <TextBox Text="{Binding EntityName}" PlaceholderText="Acme Corp" />
+              <TextBlock Text="Type" />
+              <TextBox Text="{Binding EntityType}" PlaceholderText="Organization" />
+              <Button Content="Add Entity" Click="AddEntity_Click" />
+            </StackPanel>
+          </Border>
+
+          <Border Padding="16" Background="#F3F0FF" CornerRadius="12">
+            <StackPanel Spacing="10">
+              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Add Relationship" />
+              <TextBlock Text="Source" />
+              <ComboBox ItemsSource="{Binding RelationshipEntityOptions}"
+                        SelectedItem="{Binding SelectedSourceEntity}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EntityOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="Target" />
+              <ComboBox ItemsSource="{Binding RelationshipEntityOptions}"
+                        SelectedItem="{Binding SelectedTargetEntity}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EntityOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="Type" />
+              <TextBox Text="{Binding RelationshipType}" PlaceholderText="connected_to" />
+              <Button Content="Add Relationship" Click="AddRelationship_Click" />
+            </StackPanel>
+          </Border>
         </StackPanel>
-      </Border>
+      </ScrollViewer>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" RowSpacing="18">
+        <Border Padding="16" Background="#112B3C" CornerRadius="12">
+          <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto">
+            <TextBlock FontSize="22"
+                       FontWeight="SemiBold"
+                       Foreground="White"
+                       Text="{Binding WorkspaceName}" />
+            <TextBlock Grid.Column="1"
+                       HorizontalAlignment="Right"
+                       Foreground="#D9E2EC"
+                       Text="{Binding Workspace.SchemaVersion, StringFormat='Schema v{0}'}" />
+            <TextBlock Grid.Row="1"
+                       Margin="0,8,0,0"
+                       Foreground="#D9E2EC"
+                       Text="{Binding WorkspaceId, StringFormat='Id: {0}'}" />
+            <TextBlock Grid.Row="2"
+                       Margin="0,8,0,0"
+                       Foreground="#9FB3C8"
+                       Text="{Binding WorkspaceUpdatedAt, StringFormat='Updated: {0}'}" />
+          </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="18">
+          <Border Padding="16" Background="#F8FAFC" CornerRadius="12">
+            <StackPanel Spacing="8">
+              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Workspace Snapshot" />
+              <TextBlock Text="{Binding WorkspaceCreatedAt, StringFormat='Created: {0}'}" />
+              <TextBlock Text="{Binding WorkspaceEntityCount, StringFormat='Entities: {0}'}" />
+              <TextBlock Text="{Binding WorkspaceRelationshipCount, StringFormat='Relationships: {0}'}" />
+            </StackPanel>
+          </Border>
+
+          <Border Grid.Column="1" Padding="16" Background="#F8FAFC" CornerRadius="12">
+            <StackPanel Spacing="8">
+              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Slice Boundaries" />
+              <TextBlock Text="JSON workspace persistence" />
+              <TextBlock Text="Entity and relationship editing" />
+              <TextBlock Text="No graph, timeline, or importer workflows yet" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
+        </Grid>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="18">
+          <Border Padding="16" Background="#FFFFFF" CornerRadius="12">
+            <StackPanel Spacing="10">
+              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Entities" />
+              <ItemsControl ItemsSource="{Binding Entities}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EntitySummaryViewModel">
+                    <Border Margin="0,0,0,8" Padding="10" Background="#F8FAFC" CornerRadius="8">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                        <TextBlock FontSize="12"
+                                   Foreground="#52606D"
+                                   Text="{Binding Id, StringFormat='Id: {0}'}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <Border Grid.Column="1" Padding="16" Background="#FFFFFF" CornerRadius="12">
+            <StackPanel Spacing="10">
+              <TextBlock FontSize="18" FontWeight="SemiBold" Text="Relationships" />
+              <ItemsControl ItemsSource="{Binding Relationships}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RelationshipSummaryViewModel">
+                    <Border Margin="0,0,0,8" Padding="10" Background="#F8FAFC" CornerRadius="8">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                        <TextBlock FontSize="12"
+                                   Foreground="#52606D"
+                                   Text="{Binding Id, StringFormat='Id: {0}'}"
+                                   TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Grid>
     </Grid>
   </Grid>
 </Window>
