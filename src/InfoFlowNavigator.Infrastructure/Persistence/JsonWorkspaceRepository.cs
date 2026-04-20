@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Domain.Entities;
 using InfoFlowNavigator.Domain.Events;
+using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Relationships;
 using InfoFlowNavigator.Domain.Workspaces;
 using WorkspaceEvidence = InfoFlowNavigator.Domain.Evidence.Evidence;
@@ -16,6 +17,11 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
     };
+
+    static JsonWorkspaceRepository()
+    {
+        SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    }
 
     public async Task<AnalysisWorkspace> LoadAsync(string path, CancellationToken cancellationToken = default)
     {
@@ -57,7 +63,8 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
         IReadOnlyList<EntityDocument> Entities,
         IReadOnlyList<RelationshipDocument> Relationships,
         IReadOnlyList<EventDocument> Events,
-        IReadOnlyList<EvidenceDocument> Evidence)
+        IReadOnlyList<EvidenceDocument> Evidence,
+        IReadOnlyList<EvidenceLinkDocument> EvidenceLinks)
     {
         public static WorkspaceDocument FromDomain(AnalysisWorkspace workspace) =>
             new(
@@ -71,7 +78,8 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
                 workspace.Entities.Select(EntityDocument.FromDomain).ToArray(),
                 workspace.Relationships.Select(RelationshipDocument.FromDomain).ToArray(),
                 workspace.Events.Select(EventDocument.FromDomain).ToArray(),
-                workspace.Evidence.Select(EvidenceDocument.FromDomain).ToArray());
+                workspace.Evidence.Select(EvidenceDocument.FromDomain).ToArray(),
+                workspace.EvidenceLinks.Select(EvidenceLinkDocument.FromDomain).ToArray());
 
         public AnalysisWorkspace ToDomain() =>
             new(
@@ -85,7 +93,8 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
                 (Entities ?? []).Select(static entity => entity.ToDomain()).ToArray(),
                 (Relationships ?? []).Select(static relationship => relationship.ToDomain()).ToArray(),
                 (Events ?? []).Select(static @event => @event.ToDomain()).ToArray(),
-                (Evidence ?? []).Select(static evidence => evidence.ToDomain()).ToArray());
+                (Evidence ?? []).Select(static evidence => evidence.ToDomain()).ToArray(),
+                (EvidenceLinks ?? []).Select(static evidenceLink => evidenceLink.ToDomain()).ToArray());
     }
 
     private sealed record EntityDocument(
@@ -231,6 +240,42 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
                 Confidence,
                 Tags ?? [],
                 Metadata ?? new Dictionary<string, string>(),
+                CreatedAtUtc,
+                UpdatedAtUtc);
+    }
+
+    private sealed record EvidenceLinkDocument(
+        Guid Id,
+        Guid EvidenceId,
+        EvidenceLinkTargetKind TargetKind,
+        Guid TargetId,
+        string? Role,
+        string? Notes,
+        double? Confidence,
+        DateTimeOffset CreatedAtUtc,
+        DateTimeOffset UpdatedAtUtc)
+    {
+        public static EvidenceLinkDocument FromDomain(EvidenceLink evidenceLink) =>
+            new(
+                evidenceLink.Id,
+                evidenceLink.EvidenceId,
+                evidenceLink.TargetKind,
+                evidenceLink.TargetId,
+                evidenceLink.Role,
+                evidenceLink.Notes,
+                evidenceLink.Confidence,
+                evidenceLink.CreatedAtUtc,
+                evidenceLink.UpdatedAtUtc);
+
+        public EvidenceLink ToDomain() =>
+            new(
+                Id,
+                EvidenceId,
+                TargetKind,
+                TargetId,
+                Role,
+                Notes,
+                Confidence,
                 CreatedAtUtc,
                 UpdatedAtUtc);
     }

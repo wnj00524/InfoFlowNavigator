@@ -172,7 +172,9 @@
                 <TextBlock Foreground="#243B53" Text="{Binding WorkspaceCreatedAt, StringFormat='Created: {0}'}" />
                 <TextBlock Foreground="#243B53" Text="{Binding WorkspaceEntityCount, StringFormat='Entities: {0}'}" />
                 <TextBlock Foreground="#243B53" Text="{Binding WorkspaceRelationshipCount, StringFormat='Relationships: {0}'}" />
+                <TextBlock Foreground="#243B53" Text="{Binding WorkspaceEventCount, StringFormat='Events: {0}'}" />
                 <TextBlock Foreground="#243B53" Text="{Binding WorkspaceEvidenceCount, StringFormat='Evidence: {0}'}" />
+                <TextBlock Foreground="#243B53" Text="{Binding WorkspaceEvidenceLinkCount, StringFormat='Evidence links: {0}'}" />
               </StackPanel>
             </Border>
 
@@ -187,6 +189,8 @@
                 <TextBlock Foreground="#243B53" Text="{Binding TopConnectedEntitySummary}" TextWrapping="Wrap" />
                 <TextBlock Classes="label" Text="Evidence Summary" />
                 <TextBlock Foreground="#243B53" Text="{Binding EvidenceSummaryText}" TextWrapping="Wrap" />
+                <TextBlock Classes="label" Text="Support Coverage" />
+                <TextBlock Foreground="#243B53" Text="{Binding SupportCoverageSummary}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </Grid>
@@ -253,6 +257,14 @@
                          VerticalContentAlignment="Top" />
                 <TextBlock Classes="label" Text="Confidence" />
                 <TextBox Text="{Binding EditableEntityConfidenceText}" PlaceholderText="0.0 to 1.0" />
+                <TextBlock Classes="label" Text="Linked Evidence" />
+                <ItemsControl ItemsSource="{Binding SelectedEntityLinkedEvidence}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:LinkedEvidenceSummaryViewModel">
+                      <TextBlock Foreground="#243B53" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                   <Button Classes="accent" Content="Save Entity" Click="UpdateEntity_Click" />
                   <Button Grid.Column="1" Classes="danger" Content="Delete Entity" Click="DeleteEntity_Click" />
@@ -281,6 +293,14 @@
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
+                <TextBlock Classes="label" Text="Linked Evidence" />
+                <ItemsControl ItemsSource="{Binding SelectedRelationshipLinkedEvidence}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:LinkedEvidenceSummaryViewModel">
+                      <TextBlock Foreground="#243B53" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <Button Classes="danger" Content="Delete Selected Relationship" Click="DeleteRelationship_Click" />
               </StackPanel>
             </Border>
@@ -320,6 +340,115 @@
                   <Button Classes="accent" Content="{Binding EvidenceActionLabel}" Click="SaveEvidence_Click" />
                   <Button Grid.Column="1" Classes="danger" Content="Delete Evidence" Click="DeleteEvidence_Click" />
                 </Grid>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="18">
+            <Border Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="section-title" FontSize="18" Text="Events" />
+                <ListBox ItemsSource="{Binding EventPanel.Events}"
+                         SelectedItem="{Binding EventPanel.SelectedEvent}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EventSummaryViewModel">
+                      <Border Margin="0,0,0,8" Padding="10" Background="#EEF4FB" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="8">
+                        <StackPanel>
+                          <TextBlock FontWeight="SemiBold" Foreground="#14213D" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                          <TextBlock FontSize="12" Foreground="#486581" Text="{Binding Id, StringFormat='Id: {0}'}" TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="section-title" FontSize="18" Text="Event Detail" />
+                <TextBlock Classes="label" Text="Title" />
+                <TextBox Text="{Binding EventPanel.EventTitle}" PlaceholderText="Observed meeting" />
+                <TextBlock Classes="label" Text="Occurred At" />
+                <TextBox Text="{Binding EventPanel.EventOccurredAtText}" PlaceholderText="2026-04-20T13:00:00Z" />
+                <TextBlock Classes="label" Text="Notes" />
+                <TextBox Text="{Binding EventPanel.EventNotes}" AcceptsReturn="True" Height="96" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                <TextBlock Classes="label" Text="Confidence" />
+                <TextBox Text="{Binding EventPanel.EventConfidenceText}" PlaceholderText="0.0 to 1.0" />
+                <TextBlock Classes="label" Text="Linked Evidence" />
+                <ItemsControl ItemsSource="{Binding EventPanel.LinkedEvidence}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:LinkedEvidenceSummaryViewModel">
+                      <TextBlock Foreground="#243B53" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                  <Button Classes="accent" Content="{Binding EventPanel.EventActionLabel}" Click="SaveEvent_Click" />
+                  <Button Grid.Column="1" Classes="danger" Content="Delete Event" Click="DeleteEvent_Click" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <Grid ColumnDefinitions="*,*" ColumnSpacing="18">
+            <Border Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="section-title" FontSize="18" Text="Evidence Links" />
+                <ListBox ItemsSource="{Binding EvidenceLinkPanel.Links}"
+                         SelectedItem="{Binding EvidenceLinkPanel.SelectedLink}">
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EvidenceLinkSummaryViewModel">
+                      <Border Margin="0,0,0,8" Padding="10" Background="#EEF4FB" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="8">
+                        <StackPanel>
+                          <TextBlock FontWeight="SemiBold" Foreground="#14213D" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                          <TextBlock FontSize="12" Foreground="#486581" Text="{Binding Role}" TextWrapping="Wrap" />
+                        </StackPanel>
+                      </Border>
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Classes="danger" Content="Delete Selected Link" Click="DeleteEvidenceLink_Click" />
+              </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
+              <StackPanel Spacing="10">
+                <TextBlock Classes="section-title" FontSize="18" Text="Add Evidence Link" />
+                <TextBlock Classes="label" Text="Evidence" />
+                <ComboBox ItemsSource="{Binding EvidenceLinkPanel.EvidenceOptions}"
+                          SelectedItem="{Binding EvidenceLinkPanel.SelectedEvidence}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EvidenceOptionViewModel">
+                      <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Classes="label" Text="Target Kind" />
+                <ComboBox ItemsSource="{Binding EvidenceLinkPanel.TargetKindOptions}"
+                          SelectedItem="{Binding EvidenceLinkPanel.SelectedTargetKindOption}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:EvidenceLinkTargetKindOptionViewModel">
+                      <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Classes="label" Text="Target" />
+                <ComboBox ItemsSource="{Binding EvidenceLinkPanel.TargetOptions}"
+                          SelectedItem="{Binding EvidenceLinkPanel.SelectedTarget}">
+                  <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:TargetOptionViewModel">
+                      <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                    </DataTemplate>
+                  </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Classes="label" Text="Role" />
+                <TextBox Text="{Binding EvidenceLinkPanel.LinkRole}" PlaceholderText="supports" />
+                <TextBlock Classes="label" Text="Notes" />
+                <TextBox Text="{Binding EvidenceLinkPanel.LinkNotes}" AcceptsReturn="True" Height="80" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                <TextBlock Classes="label" Text="Confidence" />
+                <TextBox Text="{Binding EvidenceLinkPanel.LinkConfidenceText}" PlaceholderText="0.0 to 1.0" />
+                <Button Classes="accent" Content="Add Evidence Link" Click="AddEvidenceLink_Click" />
               </StackPanel>
             </Border>
           </Grid>
