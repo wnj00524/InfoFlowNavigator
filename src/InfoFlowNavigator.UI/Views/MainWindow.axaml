@@ -201,6 +201,9 @@
               <TextBlock Foreground="#D9E2EC" Text="{Binding WorkspaceEventCount, StringFormat='Events {0}'}" />
             </Border>
             <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
+              <TextBlock Foreground="#D9E2EC" Text="{Binding WorkspaceHypothesisCount, StringFormat='Hypotheses {0}'}" />
+            </Border>
+            <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
               <TextBlock Foreground="#D9E2EC" Text="{Binding WorkspaceEvidenceCount, StringFormat='Evidence {0}'}" />
             </Border>
             <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
@@ -277,7 +280,7 @@
           <ScrollViewer Padding="18" HorizontalScrollBarVisibility="Disabled">
             <Grid>
               <StackPanel Spacing="18" IsVisible="{Binding IsOverviewMode}">
-                <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="12">
+                <Grid ColumnDefinitions="*,*,*,*,*,*" ColumnSpacing="12">
                   <Border Classes="metric-card">
                     <StackPanel>
                       <TextBlock Classes="label" Text="Entities" />
@@ -298,13 +301,19 @@
                   </Border>
                   <Border Grid.Column="3" Classes="metric-card">
                     <StackPanel>
-                      <TextBlock Classes="label" Text="Evidence" />
-                      <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding Overview.EvidenceCount}" />
+                      <TextBlock Classes="label" Text="Hypotheses" />
+                      <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding Overview.HypothesisCount}" />
                     </StackPanel>
                   </Border>
                   <Border Grid.Column="4" Classes="metric-card">
                     <StackPanel>
-                      <TextBlock Classes="label" Text="Evidence Links" />
+                      <TextBlock Classes="label" Text="Evidence" />
+                      <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding Overview.EvidenceCount}" />
+                    </StackPanel>
+                  </Border>
+                  <Border Grid.Column="5" Classes="metric-card">
+                    <StackPanel>
+                      <TextBlock Classes="label" Text="Assessments" />
                       <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding Overview.EvidenceLinkCount}" />
                     </StackPanel>
                   </Border>
@@ -317,6 +326,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <Button Classes="ghost" Content="Review Entities" Command="{Binding ShowEntitiesCommand}" />
                       <Button Classes="ghost" Content="Review Events" Command="{Binding ShowEventsCommand}" />
+                      <Button Classes="ghost" Content="Review Hypotheses" Command="{Binding ShowHypothesesCommand}" />
                       <Button Classes="ghost" Content="Review Evidence" Command="{Binding ShowEvidenceCommand}" />
                       <Button Classes="ghost" Content="Review Findings" Command="{Binding ShowFindingsCommand}" />
                     </StackPanel>
@@ -449,6 +459,31 @@
                 </StackPanel>
               </StackPanel>
 
+              <StackPanel Spacing="18" IsVisible="{Binding IsHypothesesMode}">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="section-title" Text="Hypotheses" />
+                  <TextBlock Classes="muted"
+                             Text="Capture competing explanations, then review the support and contradiction attached to each one."
+                             TextWrapping="Wrap" />
+                  <TextBlock Classes="muted"
+                             IsVisible="{Binding Hypotheses.IsEmpty}"
+                             Text="No hypotheses yet. Add one clear, testable statement to begin the inference workflow."
+                             TextWrapping="Wrap" />
+                  <ListBox ItemsSource="{Binding Hypotheses.Hypotheses}" SelectedItem="{Binding Hypotheses.SelectedHypothesis}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:HypothesisSummaryViewModel">
+                        <Border Margin="0,0,0,8" Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12" Padding="14">
+                          <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                            <TextBlock Classes="muted" Text="{Binding Statement}" TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </StackPanel>
+              </StackPanel>
+
               <StackPanel Spacing="18" IsVisible="{Binding IsEvidenceMode}">
                 <Grid ColumnDefinitions="1.15*,0.85*" ColumnSpacing="16">
                   <StackPanel Spacing="10">
@@ -476,7 +511,7 @@
 
                   <Border Grid.Column="1" Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12" Padding="14">
                     <StackPanel Spacing="10">
-                      <TextBlock Classes="section-title" Text="Support Links" />
+                      <TextBlock Classes="section-title" Text="Evidence Assessments" />
                       <TextBlock Classes="muted" Text="{Binding Evidence.LinkHint}" TextWrapping="Wrap" />
                       <ComboBox ItemsSource="{Binding Evidence.TargetKinds}" SelectedItem="{Binding Evidence.SelectedTargetKind}">
                         <ComboBox.ItemTemplate>
@@ -492,7 +527,20 @@
                           </DataTemplate>
                         </ComboBox.ItemTemplate>
                       </ComboBox>
-                      <TextBox Text="{Binding Evidence.LinkRole}" PlaceholderText="Role, for example supports or contradicts" />
+                      <ComboBox ItemsSource="{Binding Evidence.Relations}" SelectedItem="{Binding Evidence.SelectedRelation}">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:EvidenceRelationOptionViewModel">
+                            <TextBlock Text="{Binding DisplayName}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                      <ComboBox ItemsSource="{Binding Evidence.Strengths}" SelectedItem="{Binding Evidence.SelectedStrength}">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:EvidenceStrengthOptionViewModel">
+                            <TextBlock Text="{Binding DisplayName}" />
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
                       <TextBox Text="{Binding Evidence.LinkNotes}"
                                AcceptsReturn="True"
                                Height="72"
@@ -501,8 +549,8 @@
                                PlaceholderText="Why does this evidence matter here?" />
                       <TextBox Text="{Binding Evidence.LinkConfidenceText}" PlaceholderText="Link confidence (optional)" />
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <Button Content="Add Support Link" Command="{Binding Evidence.AddLinkCommand}" />
-                        <Button Grid.Column="1" Classes="danger" Content="Delete Link" Command="{Binding Evidence.DeleteLinkCommand}" />
+                        <Button Content="Add Assessment" Command="{Binding Evidence.AddLinkCommand}" />
+                        <Button Grid.Column="1" Classes="danger" Content="Delete Assessment" Command="{Binding Evidence.DeleteLinkCommand}" />
                       </Grid>
                       <TextBlock Classes="muted"
                                  IsVisible="{Binding Evidence.NoSelection}"
@@ -563,7 +611,7 @@
                 <StackPanel Spacing="8">
                   <TextBlock FontWeight="SemiBold" Text="Suggested Workflow" />
                   <TextBlock Classes="muted"
-                             Text="1. Add the main entities. 2. Capture the strongest evidence. 3. Record dated events. 4. Link support. 5. Review findings."
+                             Text="1. Add the main entities. 2. Capture the strongest evidence. 3. Record dated events. 4. Draft hypotheses. 5. Add structured assessments. 6. Review findings."
                              TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
@@ -646,6 +694,7 @@
             <StackPanel Spacing="14" IsVisible="{Binding IsEventsMode}">
               <TextBlock Classes="section-title" Text="{Binding Events.EditorTitle}" />
               <TextBlock Classes="muted" Text="{Binding Events.EditorHint}" TextWrapping="Wrap" />
+              <Button Classes="secondary" Content="New Event" Command="{Binding Events.BeginNewEventCommand}" />
               <TextBlock Classes="label" Text="Title" />
               <TextBox Text="{Binding Events.EventTitle}" PlaceholderText="Observed meeting" />
               <TextBlock Classes="label" Text="Occurred At" />
@@ -681,6 +730,71 @@
               </Grid>
             </StackPanel>
 
+            <StackPanel Spacing="14" IsVisible="{Binding IsHypothesesMode}">
+              <TextBlock Classes="section-title" Text="{Binding Hypotheses.EditorTitle}" />
+              <TextBlock Classes="muted" Text="{Binding Hypotheses.EditorHint}" TextWrapping="Wrap" />
+              <TextBlock Classes="label" Text="Title" />
+              <TextBox Text="{Binding Hypotheses.Title}" PlaceholderText="Working hypothesis title" />
+              <TextBlock Classes="label" Text="Statement" />
+              <TextBox Text="{Binding Hypotheses.Statement}"
+                       AcceptsReturn="True"
+                       Height="110"
+                       TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+              <TextBlock Classes="label" Text="Status" />
+              <ComboBox ItemsSource="{Binding Hypotheses.StatusOptions}" SelectedItem="{Binding Hypotheses.SelectedStatus}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:HypothesisStatusOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="label" Text="Confidence" />
+              <TextBox Text="{Binding Hypotheses.ConfidenceText}" PlaceholderText="0.0 to 1.0" />
+              <TextBlock Classes="label" Text="Notes" />
+              <TextBox Text="{Binding Hypotheses.Notes}"
+                       AcceptsReturn="True"
+                       Height="88"
+                       TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+              <Border Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="10" Padding="12">
+                <StackPanel Spacing="6">
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Hypotheses.Posture}" />
+                  <TextBlock Classes="muted" Text="{Binding Hypotheses.Explanation}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+              <TextBlock Classes="label" Text="Supporting Evidence" />
+              <ItemsControl ItemsSource="{Binding Hypotheses.SupportingEvidence}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LinkedEvidenceSummaryViewModel">
+                    <Border Margin="0,0,0,8" Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="10" Padding="12">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                        <TextBlock Classes="muted" Text="{Binding SecondaryText}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="label" Text="Contradicting Evidence" />
+              <ItemsControl ItemsSource="{Binding Hypotheses.ContradictingEvidence}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LinkedEvidenceSummaryViewModel">
+                    <Border Margin="0,0,0,8" Background="#FFF1F0" BorderBrush="#F4C7C3" BorderThickness="1" CornerRadius="10" Padding="12">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                        <TextBlock Classes="muted" Text="{Binding SecondaryText}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Content="{Binding Hypotheses.PrimaryActionLabel}" Command="{Binding Hypotheses.SaveHypothesisCommand}" />
+                <Button Grid.Column="1" Classes="danger" Content="Delete Hypothesis" Command="{Binding Hypotheses.DeleteHypothesisCommand}" />
+              </Grid>
+            </StackPanel>
+
             <StackPanel Spacing="14" IsVisible="{Binding IsEvidenceMode}">
               <TextBlock Classes="section-title" Text="{Binding Evidence.EditorTitle}" />
               <TextBlock Classes="muted" Text="{Binding Evidence.EditorHint}" TextWrapping="Wrap" />
@@ -705,6 +819,31 @@
             <StackPanel Spacing="14" IsVisible="{Binding IsFindingsMode}">
               <TextBlock Classes="section-title" Text="Finding Buckets" />
               <TextBlock Classes="muted" Text="Use these grouped lists to turn support gaps into next actions." TextWrapping="Wrap" />
+              <TextBlock Classes="muted" Text="{Binding Findings.InferenceSummary}" TextWrapping="Wrap" />
+              <TextBlock Classes="label" Text="Hypothesis Conflicts" />
+              <ItemsControl ItemsSource="{Binding Findings.HypothesisConflicts}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Margin="0,0,0,6" Text="{Binding .}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="label" Text="Unresolved Hypotheses" />
+              <ItemsControl ItemsSource="{Binding Findings.UnresolvedHypotheses}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Margin="0,0,0,6" Text="{Binding .}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="label" Text="Next Collection Steps" />
+              <ItemsControl ItemsSource="{Binding Findings.CollectionGuidance}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Margin="0,0,0,6" Text="{Binding .}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <TextBlock Classes="label" Text="Relationships Without Support" />
               <ItemsControl ItemsSource="{Binding Findings.UnsupportedRelationships}">
                 <ItemsControl.ItemTemplate>

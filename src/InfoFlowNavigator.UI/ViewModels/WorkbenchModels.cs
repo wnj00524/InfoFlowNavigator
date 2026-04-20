@@ -1,4 +1,5 @@
 using InfoFlowNavigator.Domain.EvidenceLinks;
+using InfoFlowNavigator.Domain.Hypotheses;
 
 namespace InfoFlowNavigator.UI.ViewModels;
 
@@ -8,6 +9,7 @@ public enum WorkbenchSection
     Entities,
     Relationships,
     Events,
+    Hypotheses,
     Evidence,
     Findings
 }
@@ -41,20 +43,44 @@ public sealed record EventSummaryViewModel(Guid Id, string Title, DateTimeOffset
     public string TimelineLabel => OccurredAtUtc?.ToString("yyyy-MM-dd HH:mm 'UTC'") ?? "Undated";
 }
 
-public sealed record LinkedEvidenceSummaryViewModel(Guid EvidenceLinkId, string Title, string? Citation, string? Role, string? Notes, double? Confidence)
+public sealed record HypothesisSummaryViewModel(Guid Id, string Title, string Statement, HypothesisStatus Status, double? Confidence, string? Notes)
 {
-    public string DisplayName => string.IsNullOrWhiteSpace(Role) ? Title : $"{Title} ({Role})";
-    public string SecondaryText => string.IsNullOrWhiteSpace(Citation) ? Notes ?? "No citation" : Citation;
+    public string DisplayName => $"{Title} [{Status}]";
 }
 
-public sealed record EvidenceOptionViewModel(Guid Id, string DisplayName);
+public sealed record HypothesisStatusOptionViewModel(HypothesisStatus Status, string DisplayName);
+
+public sealed record LinkedEvidenceSummaryViewModel(
+    Guid EvidenceLinkId,
+    string Title,
+    string? Citation,
+    EvidenceRelationToTarget RelationToTarget,
+    EvidenceStrength Strength,
+    string? Notes,
+    double? Confidence)
+{
+    public string DisplayName => $"{Title} ({RelationToTarget}, {Strength})";
+    public string SecondaryText => string.IsNullOrWhiteSpace(Citation) ? Notes ?? "No citation" : Citation;
+}
 
 public sealed record TargetOptionViewModel(Guid Id, string DisplayName);
 
 public sealed record EvidenceLinkTargetKindOptionViewModel(EvidenceLinkTargetKind Kind, string DisplayName);
 
-public sealed record EvidenceLinkSummaryViewModel(Guid Id, string EvidenceTitle, EvidenceLinkTargetKind TargetKind, string TargetDisplayName, string? Role, string? Notes, double? Confidence)
+public sealed record EvidenceRelationOptionViewModel(EvidenceRelationToTarget Relation, string DisplayName);
+
+public sealed record EvidenceStrengthOptionViewModel(EvidenceStrength Strength, string DisplayName);
+
+public sealed record EvidenceLinkSummaryViewModel(
+    Guid Id,
+    string EvidenceTitle,
+    EvidenceLinkTargetKind TargetKind,
+    string TargetDisplayName,
+    EvidenceRelationToTarget RelationToTarget,
+    EvidenceStrength Strength,
+    string? Notes,
+    double? Confidence)
 {
     public string DisplayName => $"{EvidenceTitle} -> {TargetKind} -> {TargetDisplayName}";
-    public string SecondaryText => string.IsNullOrWhiteSpace(Role) ? Notes ?? "No role" : $"{Role} | {Notes ?? "No notes"}";
+    public string SecondaryText => $"{RelationToTarget} | {Strength}{(string.IsNullOrWhiteSpace(Notes) ? string.Empty : $" | {Notes}")}";
 }

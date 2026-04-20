@@ -9,6 +9,7 @@ public sealed class OverviewViewModel : ViewModelBase
     private int _entityCount;
     private int _relationshipCount;
     private int _eventCount;
+    private int _hypothesisCount;
     private int _evidenceCount;
     private int _evidenceLinkCount;
     private string _keyMessage = "Start by adding entities, evidence, and events.";
@@ -39,6 +40,12 @@ public sealed class OverviewViewModel : ViewModelBase
         private set => SetProperty(ref _eventCount, value);
     }
 
+    public int HypothesisCount
+    {
+        get => _hypothesisCount;
+        private set => SetProperty(ref _hypothesisCount, value);
+    }
+
     public int EvidenceCount
     {
         get => _evidenceCount;
@@ -63,6 +70,7 @@ public sealed class OverviewViewModel : ViewModelBase
         EntityCount = analysis.EntityCount;
         RelationshipCount = analysis.RelationshipCount;
         EventCount = analysis.EventCount;
+        HypothesisCount = analysis.HypothesisCount;
         EvidenceCount = analysis.EvidenceCount;
         EvidenceLinkCount = analysis.EvidenceLinkCount;
 

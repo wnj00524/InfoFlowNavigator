@@ -2,6 +2,7 @@ using InfoFlowNavigator.Domain.Common;
 using InfoFlowNavigator.Domain.Entities;
 using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.EvidenceLinks;
+using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.Domain.Relationships;
 using WorkspaceEvidence = InfoFlowNavigator.Domain.Evidence.Evidence;
 
@@ -18,6 +19,7 @@ public sealed record AnalysisWorkspace(
     IReadOnlyList<Entity> Entities,
     IReadOnlyList<Relationship> Relationships,
     IReadOnlyList<Event> Events,
+    IReadOnlyList<Hypothesis> Hypotheses,
     IReadOnlyList<WorkspaceEvidence> Evidence,
     IReadOnlyList<EvidenceLink> EvidenceLinks)
 {
@@ -35,6 +37,7 @@ public sealed record AnalysisWorkspace(
             DomainValidation.NormalizeTags(tags),
             now,
             now,
+            [],
             [],
             [],
             [],
@@ -100,7 +103,7 @@ public sealed record AnalysisWorkspace(
 
         if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Entity && link.TargetId == entityId))
         {
-            throw new InvalidOperationException("Cannot remove entity while evidence links still reference it.");
+            throw new InvalidOperationException("Cannot remove entity while evidence assessments still reference it.");
         }
 
         return this with
@@ -133,6 +136,30 @@ public sealed record AnalysisWorkspace(
         {
             UpdatedAtUtc = DateTimeOffset.UtcNow,
             Relationships = Relationships.Concat([relationship]).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace RemoveRelationship(Guid relationshipId)
+    {
+        if (relationshipId == Guid.Empty)
+        {
+            throw new ArgumentException("Relationship id is required.", nameof(relationshipId));
+        }
+
+        if (!Relationships.Any(relationship => relationship.Id == relationshipId))
+        {
+            throw new InvalidOperationException($"Relationship '{relationshipId}' does not exist in the workspace.");
+        }
+
+        if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Relationship && link.TargetId == relationshipId))
+        {
+            throw new InvalidOperationException("Cannot remove relationship while evidence assessments still reference it.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Relationships = Relationships.Where(relationship => relationship.Id != relationshipId).ToArray()
         };
     }
 
@@ -182,7 +209,7 @@ public sealed record AnalysisWorkspace(
 
         if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Event && link.TargetId == eventId))
         {
-            throw new InvalidOperationException("Cannot remove event while evidence links still reference it.");
+            throw new InvalidOperationException("Cannot remove event while evidence assessments still reference it.");
         }
 
         return this with
@@ -192,27 +219,59 @@ public sealed record AnalysisWorkspace(
         };
     }
 
-    public AnalysisWorkspace RemoveRelationship(Guid relationshipId)
+    public AnalysisWorkspace AddHypothesis(Hypothesis hypothesis)
     {
-        if (relationshipId == Guid.Empty)
-        {
-            throw new ArgumentException("Relationship id is required.", nameof(relationshipId));
-        }
+        ArgumentNullException.ThrowIfNull(hypothesis);
 
-        if (!Relationships.Any(relationship => relationship.Id == relationshipId))
+        if (Hypotheses.Any(existing => existing.Id == hypothesis.Id))
         {
-            throw new InvalidOperationException($"Relationship '{relationshipId}' does not exist in the workspace.");
-        }
-
-        if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Relationship && link.TargetId == relationshipId))
-        {
-            throw new InvalidOperationException("Cannot remove relationship while evidence links still reference it.");
+            throw new InvalidOperationException($"Hypothesis '{hypothesis.Id}' already exists in the workspace.");
         }
 
         return this with
         {
             UpdatedAtUtc = DateTimeOffset.UtcNow,
-            Relationships = Relationships.Where(relationship => relationship.Id != relationshipId).ToArray()
+            Hypotheses = Hypotheses.Concat([hypothesis]).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace UpdateHypothesis(Hypothesis hypothesis)
+    {
+        ArgumentNullException.ThrowIfNull(hypothesis);
+
+        if (!Hypotheses.Any(existing => existing.Id == hypothesis.Id))
+        {
+            throw new InvalidOperationException($"Hypothesis '{hypothesis.Id}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Hypotheses = Hypotheses.Select(existing => existing.Id == hypothesis.Id ? hypothesis : existing).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace RemoveHypothesis(Guid hypothesisId)
+    {
+        if (hypothesisId == Guid.Empty)
+        {
+            throw new ArgumentException("Hypothesis id is required.", nameof(hypothesisId));
+        }
+
+        if (!Hypotheses.Any(hypothesis => hypothesis.Id == hypothesisId))
+        {
+            throw new InvalidOperationException($"Hypothesis '{hypothesisId}' does not exist in the workspace.");
+        }
+
+        if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Hypothesis && link.TargetId == hypothesisId))
+        {
+            throw new InvalidOperationException("Cannot remove hypothesis while evidence assessments still reference it.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Hypotheses = Hypotheses.Where(hypothesis => hypothesis.Id != hypothesisId).ToArray()
         };
     }
 
@@ -262,7 +321,7 @@ public sealed record AnalysisWorkspace(
 
         if (EvidenceLinks.Any(link => link.EvidenceId == evidenceId))
         {
-            throw new InvalidOperationException("Cannot remove evidence while evidence links still reference it.");
+            throw new InvalidOperationException("Cannot remove evidence while evidence assessments still reference it.");
         }
 
         return this with
@@ -280,7 +339,7 @@ public sealed record AnalysisWorkspace(
 
         if (EvidenceLinks.Any(existing => existing.Id == evidenceLink.Id))
         {
-            throw new InvalidOperationException($"Evidence link '{evidenceLink.Id}' already exists in the workspace.");
+            throw new InvalidOperationException($"Evidence assessment '{evidenceLink.Id}' already exists in the workspace.");
         }
 
         return this with
@@ -294,12 +353,12 @@ public sealed record AnalysisWorkspace(
     {
         if (evidenceLinkId == Guid.Empty)
         {
-            throw new ArgumentException("Evidence link id is required.", nameof(evidenceLinkId));
+            throw new ArgumentException("Evidence assessment id is required.", nameof(evidenceLinkId));
         }
 
         if (!EvidenceLinks.Any(link => link.Id == evidenceLinkId))
         {
-            throw new InvalidOperationException($"Evidence link '{evidenceLinkId}' does not exist in the workspace.");
+            throw new InvalidOperationException($"Evidence assessment '{evidenceLinkId}' does not exist in the workspace.");
         }
 
         return this with
@@ -331,6 +390,14 @@ public sealed record AnalysisWorkspace(
             }
         }
 
+        foreach (var hypothesis in Hypotheses)
+        {
+            if (string.IsNullOrWhiteSpace(hypothesis.Title) || string.IsNullOrWhiteSpace(hypothesis.Statement))
+            {
+                throw new InvalidOperationException("Workspace contains a hypothesis with missing required fields.");
+            }
+        }
+
         foreach (var evidenceLink in EvidenceLinks)
         {
             ValidateEvidenceLinkReferences(evidenceLink);
@@ -342,6 +409,7 @@ public sealed record AnalysisWorkspace(
             Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes.Trim(),
             Tags = DomainValidation.NormalizeTags(Tags),
             UpdatedAtUtc = UpdatedAtUtc == default ? CreatedAtUtc : UpdatedAtUtc,
+            Hypotheses = Hypotheses.ToArray(),
             EvidenceLinks = EvidenceLinks.ToArray()
         };
     }
@@ -350,7 +418,7 @@ public sealed record AnalysisWorkspace(
     {
         if (!Evidence.Any(evidence => evidence.Id == evidenceLink.EvidenceId))
         {
-            throw new InvalidOperationException("Evidence link must reference existing evidence.");
+            throw new InvalidOperationException("Evidence assessment must reference existing evidence.");
         }
 
         var targetExists = evidenceLink.TargetKind switch
@@ -358,12 +426,13 @@ public sealed record AnalysisWorkspace(
             EvidenceLinkTargetKind.Entity => Entities.Any(entity => entity.Id == evidenceLink.TargetId),
             EvidenceLinkTargetKind.Relationship => Relationships.Any(relationship => relationship.Id == evidenceLink.TargetId),
             EvidenceLinkTargetKind.Event => Events.Any(@event => @event.Id == evidenceLink.TargetId),
+            EvidenceLinkTargetKind.Hypothesis => Hypotheses.Any(hypothesis => hypothesis.Id == evidenceLink.TargetId),
             _ => false
         };
 
         if (!targetExists)
         {
-            throw new InvalidOperationException($"Evidence link target '{evidenceLink.TargetId}' does not exist for target kind '{evidenceLink.TargetKind}'.");
+            throw new InvalidOperationException($"Evidence assessment target '{evidenceLink.TargetId}' does not exist for target kind '{evidenceLink.TargetKind}'.");
         }
     }
 }

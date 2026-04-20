@@ -9,6 +9,7 @@ public sealed record LinkedEvidenceSummary(
     string? Citation,
     EvidenceLinkTargetKind TargetKind,
     Guid TargetId,
-    string? Role,
+    EvidenceRelationToTarget RelationToTarget,
+    EvidenceStrength Strength,
     string? LinkNotes,
     double? LinkConfidence);

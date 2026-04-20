@@ -26,232 +26,66 @@ public sealed class PlainTextReportGenerator : IReportGenerator
             .AppendLine($"Entities: {analysis.EntityCount}")
             .AppendLine($"Relationships: {analysis.RelationshipCount}")
             .AppendLine($"Events: {analysis.EventCount}")
+            .AppendLine($"Hypotheses: {analysis.HypothesisCount}")
             .AppendLine($"Evidence: {analysis.EvidenceCount}")
-            .AppendLine($"Evidence Links: {analysis.EvidenceLinkCount}")
+            .AppendLine($"Evidence Assessments: {analysis.EvidenceLinkCount}")
             .AppendLine()
             .AppendLine("Findings:");
 
         AppendFindings(builder, analysis.Findings);
-        builder.AppendLine()
-            .AppendLine("Entity Count By Type:");
+        builder.AppendLine().AppendLine("Hypothesis Inference:");
 
-        if (analysis.EntityCountByType.Count == 0)
+        if (analysis.HypothesisSummaries.Count == 0)
         {
             builder.AppendLine("- None");
         }
         else
         {
-            foreach (var item in analysis.EntityCountByType)
+            foreach (var summary in analysis.HypothesisSummaries)
             {
-                builder.AppendLine($"- {item.EntityType}: {item.Count}");
+                builder.AppendLine($"- {summary.Title} [{summary.Posture}]");
+                builder.AppendLine($"  Status: {summary.Status}");
+                builder.AppendLine($"  Support: {summary.SupportCount} (weighted {summary.SupportWeight:0.##})");
+                builder.AppendLine($"  Contradiction: {summary.ContradictionCount} (weighted {summary.ContradictionWeight:0.##})");
+                builder.AppendLine($"  Explanation: {summary.Explanation}");
             }
         }
 
-        builder.AppendLine()
-            .AppendLine("Orphan Entities:");
+        builder.AppendLine().AppendLine("Collection Guidance:");
 
-        if (analysis.OrphanEntities.Count == 0)
+        if (analysis.CollectionGuidance.Count == 0)
         {
             builder.AppendLine("- None");
         }
         else
         {
-            foreach (var orphan in analysis.OrphanEntities)
+            foreach (var guidance in analysis.CollectionGuidance)
             {
-                builder.AppendLine($"- {orphan.Name} [{orphan.EntityType}]");
+                builder.AppendLine($"- {guidance.Title}: {guidance.Detail}");
             }
         }
 
-        builder.AppendLine()
-            .AppendLine("Top Connected Entities:");
+        builder.AppendLine().AppendLine("Hypotheses:");
 
-        if (analysis.TopConnectedEntities.Count == 0)
+        if (workspace.Hypotheses.Count == 0)
         {
             builder.AppendLine("- None");
         }
         else
         {
-            foreach (var entity in analysis.TopConnectedEntities)
+            foreach (var hypothesis in workspace.Hypotheses.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase))
             {
-                builder.AppendLine($"- {entity.Name} [{entity.EntityType}] degree {entity.Degree}");
-            }
-        }
+                builder.AppendLine($"- {hypothesis.Title} [{hypothesis.Status}]");
+                builder.AppendLine($"  Statement: {hypothesis.Statement}");
 
-        builder.AppendLine()
-            .AppendLine("Relationships Missing Confidence:");
-
-        if (analysis.RelationshipsMissingConfidence.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var relationship in analysis.RelationshipsMissingConfidence)
-            {
-                builder.AppendLine($"- {relationship.SourceEntityName} -> {relationship.RelationshipType} -> {relationship.TargetEntityName}");
-            }
-        }
-
-        builder.AppendLine()
-            .AppendLine("Relationships Without Supporting Evidence:");
-
-        if (analysis.RelationshipsWithoutSupportingEvidence.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var relationship in analysis.RelationshipsWithoutSupportingEvidence)
-            {
-                builder.AppendLine($"- {relationship.Description}");
-            }
-        }
-
-        builder.AppendLine()
-            .AppendLine("Events Without Supporting Evidence:");
-
-        if (analysis.EventsWithoutSupportingEvidence.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var @event in analysis.EventsWithoutSupportingEvidence)
-            {
-                builder.AppendLine($"- {@event.Title}");
-            }
-        }
-
-        builder.AppendLine()
-            .AppendLine("Entities With Activity But No Events:");
-
-        if (analysis.EntitiesWithActivityButNoEvents.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var entity in analysis.EntitiesWithActivityButNoEvents)
-            {
-                builder.AppendLine($"- {entity.Name} [{entity.EntityType}] degree {entity.Degree}");
-            }
-        }
-
-        builder.AppendLine()
-            .AppendLine("Chronology Gaps:");
-
-        if (analysis.ChronologyGaps.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var gap in analysis.ChronologyGaps)
-            {
-                builder.AppendLine($"- {gap.EarlierEventTitle} -> {gap.LaterEventTitle}: {gap.GapDays} days");
-            }
-        }
-
-        builder.AppendLine()
-            .AppendLine("Evidence Summary:")
-            .AppendLine($"- Total evidence items: {analysis.EvidenceSummary.TotalCount}")
-            .AppendLine($"- With citations: {analysis.EvidenceSummary.WithCitationCount}")
-            .AppendLine($"- Missing citations: {analysis.EvidenceSummary.MissingCitationCount}")
-            .AppendLine($"- With confidence: {analysis.EvidenceSummary.WithConfidenceCount}")
-            .AppendLine($"- Missing confidence: {analysis.EvidenceSummary.MissingConfidenceCount}")
-            .AppendLine()
-            .AppendLine("Entities:");
-
-        if (workspace.Entities.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var entity in workspace.Entities)
-            {
-                builder.AppendLine($"- {entity.Name} [{entity.EntityType}]");
-            }
-        }
-
-        builder
-            .AppendLine()
-            .AppendLine("Relationships:");
-
-        if (workspace.Relationships.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var relationship in workspace.Relationships)
-            {
-                var source = workspace.Entities.FirstOrDefault(entity => entity.Id == relationship.SourceEntityId)?.Name ?? relationship.SourceEntityId.ToString();
-                var target = workspace.Entities.FirstOrDefault(entity => entity.Id == relationship.TargetEntityId)?.Name ?? relationship.TargetEntityId.ToString();
-                builder.AppendLine($"- {source} -> {relationship.RelationshipType} -> {target}");
-            }
-        }
-
-        builder
-            .AppendLine()
-            .AppendLine("Events:");
-
-        if (workspace.Events.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var @event in workspace.Events.OrderBy(@event => @event.OccurredAtUtc ?? DateTimeOffset.MaxValue).ThenBy(@event => @event.Title, StringComparer.OrdinalIgnoreCase))
-            {
-                builder.AppendLine($"- {@event.Title}");
-
-                if (@event.OccurredAtUtc is not null)
+                if (!string.IsNullOrWhiteSpace(hypothesis.Notes))
                 {
-                    builder.AppendLine($"  Occurred: {@event.OccurredAtUtc:O}");
-                }
-
-                if (!string.IsNullOrWhiteSpace(@event.Notes))
-                {
-                    builder.AppendLine($"  Notes: {@event.Notes}");
+                    builder.AppendLine($"  Notes: {hypothesis.Notes}");
                 }
             }
         }
 
-        builder
-            .AppendLine()
-            .AppendLine("Evidence:");
-
-        if (workspace.Evidence.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var evidence in workspace.Evidence)
-            {
-                builder.AppendLine($"- {evidence.Title}");
-
-                if (!string.IsNullOrWhiteSpace(evidence.Citation))
-                {
-                    builder.AppendLine($"  Citation: {evidence.Citation}");
-                }
-
-                if (!string.IsNullOrWhiteSpace(evidence.Notes))
-                {
-                    builder.AppendLine($"  Notes: {evidence.Notes}");
-                }
-
-                if (evidence.Confidence is not null)
-                {
-                    builder.AppendLine($"  Confidence: {evidence.Confidence:0.###}");
-                }
-            }
-        }
-
-        builder
-            .AppendLine()
-            .AppendLine("Evidence Links:");
+        builder.AppendLine().AppendLine("Evidence Assessments:");
 
         if (workspace.EvidenceLinks.Count == 0)
         {
@@ -263,15 +97,17 @@ public sealed class PlainTextReportGenerator : IReportGenerator
             {
                 var evidenceTitle = workspace.Evidence.FirstOrDefault(evidence => evidence.Id == link.EvidenceId)?.Title ?? link.EvidenceId.ToString();
                 builder.AppendLine($"- {link.TargetKind} {link.TargetId}: {evidenceTitle}");
-
-                if (!string.IsNullOrWhiteSpace(link.Role))
-                {
-                    builder.AppendLine($"  Role: {link.Role}");
-                }
+                builder.AppendLine($"  Relation: {link.RelationToTarget}");
+                builder.AppendLine($"  Strength: {link.Strength}");
 
                 if (!string.IsNullOrWhiteSpace(link.Notes))
                 {
                     builder.AppendLine($"  Notes: {link.Notes}");
+                }
+
+                if (link.Confidence is not null)
+                {
+                    builder.AppendLine($"  Confidence: {link.Confidence:0.###}");
                 }
             }
         }
