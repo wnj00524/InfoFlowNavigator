@@ -1,6 +1,7 @@
 using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Application.Workspaces;
 using InfoFlowNavigator.Domain.EvidenceLinks;
+using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.Domain.Workspaces;
 
 namespace InfoFlowNavigator.Application.Tests.Workspaces;
@@ -18,73 +19,53 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
-    public void AddEntityRelationshipAndEvent_UpdateWorkspace()
+    public void AddUpdateAndRemoveHypothesis_ThroughApplicationService_UpdatesWorkspace()
     {
         var service = new WorkspaceApplicationService(new InMemoryWorkspaceRepository());
         var workspace = service.CreateWorkspace("Bootstrap Workspace");
 
-        workspace = service.AddEntity(workspace, "Alice", "Person");
-        workspace = service.AddEntity(workspace, "Contoso", "Organization");
-        workspace = service.AddRelationship(workspace, workspace.Entities[0].Id, workspace.Entities[1].Id, "employed_by");
-        workspace = service.AddEvent(workspace, "Employment confirmed", DateTimeOffset.Parse("2026-04-20T12:00:00Z"), "Interview", 0.8);
-        workspace = service.UpdateEvent(workspace, workspace.Events[0].Id, "Employment confirmed v2", workspace.Events[0].OccurredAtUtc, "Follow-up", 0.9);
+        workspace = service.AddHypothesis(workspace, "Employment", "Alice works for Contoso.");
+        workspace = service.UpdateHypothesis(workspace, workspace.Hypotheses[0].Id, "Employment revised", "Alice likely works for Contoso.", HypothesisStatus.Active, 0.75, "Needs corroboration");
+        workspace = service.RemoveHypothesis(workspace, workspace.Hypotheses[0].Id);
 
-        Assert.Equal(2, workspace.Entities.Count);
-        Assert.Single(workspace.Relationships);
-        Assert.Single(workspace.Events);
-        Assert.Equal("Employment confirmed v2", workspace.Events[0].Title);
+        Assert.Empty(workspace.Hypotheses);
     }
 
     [Fact]
-    public void AddUpdateAndRemoveEvidence_ThroughApplicationService_UpdatesWorkspace()
+    public void AddAssessmentAndQuerySupportAndContradiction_Work()
     {
         var service = new WorkspaceApplicationService(new InMemoryWorkspaceRepository());
         var workspace = service.CreateWorkspace("Bootstrap Workspace");
+        workspace = service.AddHypothesis(workspace, "Employment", "Alice works for Contoso.");
+        workspace = service.AddEvidence(workspace, "Interview Summary", "INT-001", "Notes", 0.8);
+        workspace = service.AddEvidence(workspace, "Payroll Record", "PAY-007", "Contradictory record", 0.9);
 
-        workspace = service.AddEvidence(workspace, "Interview Summary", "INT-001", "First pass", 0.6);
-        workspace = service.UpdateEvidence(workspace, workspace.Evidence[0].Id, "Interview Summary v2", "INT-002", "Revised notes", 0.9);
-        workspace = service.RemoveEvidence(workspace, workspace.Evidence[0].Id);
-
-        Assert.Empty(workspace.Evidence);
-    }
-
-    [Fact]
-    public void AddRemoveEvidenceLinkAndQueryHelpers_Work()
-    {
-        var service = new WorkspaceApplicationService(new InMemoryWorkspaceRepository());
-        var workspace = service.CreateWorkspace("Bootstrap Workspace");
-        workspace = service.AddEntity(workspace, "Alice", "Person");
-        workspace = service.AddEvidence(workspace, "Interview Summary", "INT-001", "Notes", 0.6);
-
-        workspace = service.AddEvidenceLink(
+        workspace = service.AddHypothesisEvidenceLink(
             workspace,
             workspace.Evidence[0].Id,
-            EvidenceLinkTargetKind.Entity,
-            workspace.Entities[0].Id,
-            "supports",
-            "Directly supports the entity",
+            workspace.Hypotheses[0].Id,
+            EvidenceRelationToTarget.Supports,
+            EvidenceStrength.Strong,
+            "Direct corroboration",
             0.8);
 
-        var linkedEvidence = service.GetLinkedEvidenceByTarget(workspace, EvidenceLinkTargetKind.Entity, workspace.Entities[0].Id);
-        Assert.Single(linkedEvidence);
-        Assert.Equal("Interview Summary", linkedEvidence[0].Title);
+        workspace = service.AddHypothesisEvidenceLink(
+            workspace,
+            workspace.Evidence[1].Id,
+            workspace.Hypotheses[0].Id,
+            EvidenceRelationToTarget.Contradicts,
+            EvidenceStrength.Moderate,
+            "Record mismatch",
+            0.7);
 
-        workspace = service.RemoveEvidenceLink(workspace, workspace.EvidenceLinks[0].Id);
-        Assert.Empty(workspace.EvidenceLinks);
-    }
+        var support = service.GetSupportingEvidenceByTarget(workspace, EvidenceLinkTargetKind.Hypothesis, workspace.Hypotheses[0].Id);
+        var contradiction = service.GetContradictingEvidenceByTarget(workspace, EvidenceLinkTargetKind.Hypothesis, workspace.Hypotheses[0].Id);
+        var summary = service.GetHypothesisEvidenceSummary(workspace, workspace.Hypotheses[0].Id);
 
-    [Fact]
-    public void RemoveRelationship_ThroughApplicationService_RemovesRelationship()
-    {
-        var service = new WorkspaceApplicationService(new InMemoryWorkspaceRepository());
-        var workspace = service.CreateWorkspace("Bootstrap Workspace");
-        workspace = service.AddEntity(workspace, "Alice", "Person");
-        workspace = service.AddEntity(workspace, "Contoso", "Organization");
-        workspace = service.AddRelationship(workspace, workspace.Entities[0].Id, workspace.Entities[1].Id, "employed_by");
-
-        var updated = service.RemoveRelationship(workspace, workspace.Relationships[0].Id);
-
-        Assert.Empty(updated.Relationships);
+        Assert.Single(support);
+        Assert.Single(contradiction);
+        Assert.Single(summary.SupportingEvidence);
+        Assert.Single(summary.ContradictingEvidence);
     }
 
     private sealed class InMemoryWorkspaceRepository : IWorkspaceRepository

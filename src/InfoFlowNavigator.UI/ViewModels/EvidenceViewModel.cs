@@ -16,7 +16,8 @@ public sealed class EvidenceViewModel : ViewModelBase
     private EvidenceLinkSummaryViewModel? _selectedLink;
     private EvidenceLinkTargetKindOptionViewModel? _selectedTargetKind;
     private TargetOptionViewModel? _selectedTarget;
-    private string _linkRole = string.Empty;
+    private EvidenceRelationOptionViewModel? _selectedRelation;
+    private EvidenceStrengthOptionViewModel? _selectedStrength;
     private string _linkNotes = string.Empty;
     private string _linkConfidenceText = string.Empty;
 
@@ -34,6 +35,31 @@ public sealed class EvidenceViewModel : ViewModelBase
         DeleteLinkCommand = deleteLinkCommand;
         _selectionChanged = selectionChanged;
         _targetKindChanged = targetKindChanged;
+
+        foreach (var relation in new[]
+                 {
+                     new EvidenceRelationOptionViewModel(EvidenceRelationToTarget.Supports, "Supports"),
+                     new EvidenceRelationOptionViewModel(EvidenceRelationToTarget.Contradicts, "Contradicts"),
+                     new EvidenceRelationOptionViewModel(EvidenceRelationToTarget.Mentions, "Mentions"),
+                     new EvidenceRelationOptionViewModel(EvidenceRelationToTarget.Contextual, "Contextual"),
+                     new EvidenceRelationOptionViewModel(EvidenceRelationToTarget.DerivedFrom, "Derived From")
+                 })
+        {
+            Relations.Add(relation);
+        }
+
+        foreach (var strength in new[]
+                 {
+                     new EvidenceStrengthOptionViewModel(EvidenceStrength.Weak, "Weak"),
+                     new EvidenceStrengthOptionViewModel(EvidenceStrength.Moderate, "Moderate"),
+                     new EvidenceStrengthOptionViewModel(EvidenceStrength.Strong, "Strong")
+                 })
+        {
+            Strengths.Add(strength);
+        }
+
+        SelectedRelation = Relations.FirstOrDefault();
+        SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate);
     }
 
     public ObservableCollection<EvidenceSummaryViewModel> EvidenceItems { get; } = [];
@@ -43,6 +69,10 @@ public sealed class EvidenceViewModel : ViewModelBase
     public ObservableCollection<EvidenceLinkTargetKindOptionViewModel> TargetKinds { get; } = [];
 
     public ObservableCollection<TargetOptionViewModel> Targets { get; } = [];
+
+    public ObservableCollection<EvidenceRelationOptionViewModel> Relations { get; } = [];
+
+    public ObservableCollection<EvidenceStrengthOptionViewModel> Strengths { get; } = [];
 
     public ICommand SaveEvidenceCommand { get; }
 
@@ -119,10 +149,16 @@ public sealed class EvidenceViewModel : ViewModelBase
         set => SetProperty(ref _selectedTarget, value);
     }
 
-    public string LinkRole
+    public EvidenceRelationOptionViewModel? SelectedRelation
     {
-        get => _linkRole;
-        set => SetProperty(ref _linkRole, value);
+        get => _selectedRelation;
+        set => SetProperty(ref _selectedRelation, value);
+    }
+
+    public EvidenceStrengthOptionViewModel? SelectedStrength
+    {
+        get => _selectedStrength;
+        set => SetProperty(ref _selectedStrength, value);
     }
 
     public string LinkNotes
@@ -146,14 +182,14 @@ public sealed class EvidenceViewModel : ViewModelBase
     public string EditorTitle => SelectedEvidence is null ? "Capture Evidence" : "Edit Evidence";
 
     public string EditorHint => SelectedEvidence is null
-        ? "Capture source material first, then attach it where it supports entities, relationships, or events."
-        : "Update the selected evidence and manage where it supports the analysis.";
+        ? "Capture source material first, then attach it where it supports, contradicts, or contextualizes the analysis."
+        : "Update the selected evidence and manage its structured assessments.";
 
     public string PrimaryActionLabel => SelectedEvidence is null ? "Add Evidence" : "Update Evidence";
 
     public string LinkHint => SelectedEvidence is null
-        ? "Select an evidence item to add support links."
-        : $"Create a support link for '{SelectedEvidence.Title}'.";
+        ? "Select an evidence item to add assessments."
+        : $"Create a structured assessment for '{SelectedEvidence.Title}'.";
 
     public void Refresh(
         IReadOnlyList<EvidenceSummaryViewModel> evidenceItems,
@@ -210,6 +246,10 @@ public sealed class EvidenceViewModel : ViewModelBase
         EvidenceCitation = string.Empty;
         EvidenceNotes = string.Empty;
         EvidenceConfidenceText = string.Empty;
+        LinkNotes = string.Empty;
+        LinkConfidenceText = string.Empty;
+        SelectedRelation = Relations.FirstOrDefault();
+        SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate);
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)

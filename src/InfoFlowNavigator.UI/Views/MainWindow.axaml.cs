@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Application.Workspaces;
+using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Workspaces;
 using InfoFlowNavigator.UI.ViewModels;
 
@@ -36,8 +37,13 @@ public partial class MainWindow : Window
                 workspace.Entities.Count,
                 workspace.Relationships.Count,
                 workspace.Events.Count,
+                workspace.Hypotheses.Count,
                 workspace.Evidence.Count,
                 workspace.EvidenceLinks.Count,
+                [],
+                [],
+                [],
+                [],
                 [],
                 [],
                 [],

@@ -7,7 +7,8 @@ public sealed record EvidenceLink(
     Guid EvidenceId,
     EvidenceLinkTargetKind TargetKind,
     Guid TargetId,
-    string? Role,
+    EvidenceRelationToTarget RelationToTarget,
+    EvidenceStrength Strength,
     string? Notes,
     double? Confidence,
     DateTimeOffset CreatedAtUtc,
@@ -17,7 +18,8 @@ public sealed record EvidenceLink(
         Guid evidenceId,
         EvidenceLinkTargetKind targetKind,
         Guid targetId,
-        string? role = null,
+        EvidenceRelationToTarget relationToTarget,
+        EvidenceStrength strength = EvidenceStrength.Moderate,
         string? notes = null,
         double? confidence = null)
     {
@@ -29,7 +31,8 @@ public sealed record EvidenceLink(
             evidenceId,
             targetKind,
             targetId,
-            string.IsNullOrWhiteSpace(role) ? null : role.Trim(),
+            relationToTarget,
+            strength,
             string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
             DomainValidation.NormalizeConfidence(confidence, nameof(confidence)),
             now,
@@ -37,7 +40,8 @@ public sealed record EvidenceLink(
     }
 
     public EvidenceLink Update(
-        string? role = null,
+        EvidenceRelationToTarget relationToTarget,
+        EvidenceStrength strength = EvidenceStrength.Moderate,
         string? notes = null,
         double? confidence = null)
     {
@@ -45,7 +49,8 @@ public sealed record EvidenceLink(
 
         return this with
         {
-            Role = string.IsNullOrWhiteSpace(role) ? null : role.Trim(),
+            RelationToTarget = relationToTarget,
+            Strength = strength,
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
             Confidence = DomainValidation.NormalizeConfidence(confidence, nameof(confidence)),
             UpdatedAtUtc = DateTimeOffset.UtcNow

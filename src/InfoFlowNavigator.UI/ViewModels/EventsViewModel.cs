@@ -13,10 +13,12 @@ public sealed class EventsViewModel : ViewModelBase
     private string _eventConfidenceText = string.Empty;
 
     public EventsViewModel(
+        ICommand beginNewEventCommand,
         ICommand saveEventCommand,
         ICommand deleteEventCommand,
         Action<EventSummaryViewModel?> selectionChanged)
     {
+        BeginNewEventCommand = beginNewEventCommand;
         SaveEventCommand = saveEventCommand;
         DeleteEventCommand = deleteEventCommand;
         _selectionChanged = selectionChanged;
@@ -25,6 +27,8 @@ public sealed class EventsViewModel : ViewModelBase
     public ObservableCollection<EventSummaryViewModel> Events { get; } = [];
 
     public ObservableCollection<LinkedEvidenceSummaryViewModel> LinkedEvidence { get; } = [];
+
+    public ICommand BeginNewEventCommand { get; }
 
     public ICommand SaveEventCommand { get; }
 
@@ -85,6 +89,12 @@ public sealed class EventsViewModel : ViewModelBase
         : "Update the selected event and review its supporting evidence.";
 
     public string PrimaryActionLabel => SelectedEvent is null ? "Add Event" : "Update Event";
+
+    public void BeginNewEvent()
+    {
+        SelectedEvent = null;
+        ClearEditor();
+    }
 
     public void Refresh(IReadOnlyList<EventSummaryViewModel> events, Guid? selectedEventId)
     {
