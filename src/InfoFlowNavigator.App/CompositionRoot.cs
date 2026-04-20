@@ -14,12 +14,13 @@ internal static class CompositionRoot
     {
         var workspaceRepository = new JsonWorkspaceRepository();
         var workspaceService = new WorkspaceApplicationService(workspaceRepository);
+        var analysisService = new WorkspaceAnalysisService();
 
-        _ = new PlaceholderAnalysisService();
+        _ = analysisService;
         _ = new GraphMlWorkspaceAdapter();
-        _ = new PlainTextReportGenerator();
+        _ = new PlainTextReportGenerator(analysisService);
 
-        var shellViewModel = new ShellViewModel(workspaceService);
+        var shellViewModel = new ShellViewModel(workspaceService, analysisService);
         return new MainWindow(shellViewModel);
     }
 }
