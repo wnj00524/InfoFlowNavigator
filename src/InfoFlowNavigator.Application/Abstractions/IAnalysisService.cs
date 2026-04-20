@@ -5,5 +5,5 @@ namespace InfoFlowNavigator.Application.Abstractions;
 
 public interface IAnalysisService
 {
-    Task<AnalysisSummary> SummarizeAsync(AnalysisWorkspace workspace, CancellationToken cancellationToken = default);
+    Task<WorkspaceAnalysisResult> SummarizeAsync(AnalysisWorkspace workspace, CancellationToken cancellationToken = default);
 }

@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using InfoFlowNavigator.Application.Abstractions;
+using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Application.Workspaces;
 using InfoFlowNavigator.Domain.Workspaces;
 
@@ -10,6 +12,7 @@ namespace InfoFlowNavigator.UI.ViewModels;
 public sealed class ShellViewModel : INotifyPropertyChanged
 {
     private readonly WorkspaceApplicationService _workspaceService;
+    private readonly IAnalysisService _analysisService;
     private AnalysisWorkspace _workspace;
     private string _workspaceName = string.Empty;
     private string _workspacePath = "workspace.ifn.json";
@@ -29,11 +32,17 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private string _evidenceCitation = string.Empty;
     private string _evidenceNotes = string.Empty;
     private string _evidenceConfidenceText = string.Empty;
+    private string _entityTypeSummary = "No entities to analyze yet.";
+    private string _orphanEntitySummary = "No entities to analyze yet.";
+    private string _topConnectedEntitySummary = "No relationships yet.";
+    private string _missingConfidenceRelationshipSummary = "All relationship confidence gaps will appear here.";
+    private string _evidenceSummaryText = "No evidence summary available yet.";
     private string _statusMessage;
 
-    public ShellViewModel(WorkspaceApplicationService workspaceService)
+    public ShellViewModel(WorkspaceApplicationService workspaceService, IAnalysisService analysisService)
     {
         _workspaceService = workspaceService;
+        _analysisService = analysisService;
         _workspace = workspaceService.CreateWorkspace("Untitled Workspace");
         _statusMessage = "Create or open a workspace to begin.";
 
@@ -41,6 +50,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         Relationships = new ObservableCollection<RelationshipSummaryViewModel>();
         EvidenceItems = new ObservableCollection<EvidenceSummaryViewModel>();
         RelationshipEntityOptions = new ObservableCollection<EntityOptionViewModel>();
+        Findings = new ObservableCollection<AnalysisFinding>();
 
         WorkspaceName = _workspace.Name;
         RefreshWorkspaceState();
@@ -50,7 +60,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string Title => "Info Flow Navigator";
 
-    public string Subtitle => "Analyst workspace slice";
+    public string Subtitle => "First-pass analysis slice";
 
     public string WorkspaceName
     {
@@ -175,6 +185,36 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string EvidenceActionLabel => SelectedEvidence is null ? "Add Evidence" : "Update Evidence";
 
+    public string EntityTypeSummary
+    {
+        get => _entityTypeSummary;
+        private set => SetField(ref _entityTypeSummary, value);
+    }
+
+    public string OrphanEntitySummary
+    {
+        get => _orphanEntitySummary;
+        private set => SetField(ref _orphanEntitySummary, value);
+    }
+
+    public string TopConnectedEntitySummary
+    {
+        get => _topConnectedEntitySummary;
+        private set => SetField(ref _topConnectedEntitySummary, value);
+    }
+
+    public string MissingConfidenceRelationshipSummary
+    {
+        get => _missingConfidenceRelationshipSummary;
+        private set => SetField(ref _missingConfidenceRelationshipSummary, value);
+    }
+
+    public string EvidenceSummaryText
+    {
+        get => _evidenceSummaryText;
+        private set => SetField(ref _evidenceSummaryText, value);
+    }
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -217,6 +257,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public ObservableCollection<EvidenceSummaryViewModel> EvidenceItems { get; }
 
     public ObservableCollection<EntityOptionViewModel> RelationshipEntityOptions { get; }
+
+    public ObservableCollection<AnalysisFinding> Findings { get; }
 
     public void CreateNewWorkspace()
     {
@@ -418,6 +460,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             ClearEvidenceEditor();
         }
 
+        RefreshAnalysisState();
+
         OnPropertyChanged(nameof(WorkspaceEntityCount));
         OnPropertyChanged(nameof(WorkspaceRelationshipCount));
         OnPropertyChanged(nameof(WorkspaceEvidenceCount));
@@ -425,6 +469,40 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(WorkspaceUpdatedAt));
         OnPropertyChanged(nameof(WorkspaceId));
         OnPropertyChanged(nameof(EvidenceActionLabel));
+    }
+
+    private void RefreshAnalysisState()
+    {
+        var analysis = _analysisService.SummarizeAsync(Workspace).GetAwaiter().GetResult();
+
+        Findings.Clear();
+        foreach (var finding in analysis.Findings)
+        {
+            Findings.Add(finding);
+        }
+
+        EntityTypeSummary = analysis.EntityCountByType.Count == 0
+            ? "No entity types available."
+            : string.Join(", ", analysis.EntityCountByType.Select(item => $"{item.EntityType} ({item.Count})"));
+
+        OrphanEntitySummary = analysis.OrphanEntities.Count == 0
+            ? "No orphan entities."
+            : string.Join(", ", analysis.OrphanEntities.Select(entity => $"{entity.Name} [{entity.EntityType}]"));
+
+        TopConnectedEntitySummary = analysis.TopConnectedEntities.Count == 0
+            ? "No connected entities yet."
+            : string.Join(", ", analysis.TopConnectedEntities.Select(entity => $"{entity.Name} ({entity.Degree})"));
+
+        MissingConfidenceRelationshipSummary = analysis.RelationshipsMissingConfidence.Count == 0
+            ? "All relationships have confidence values."
+            : string.Join(", ", analysis.RelationshipsMissingConfidence.Select(relationship => $"{relationship.SourceEntityName} -> {relationship.RelationshipType} -> {relationship.TargetEntityName}"));
+
+        EvidenceSummaryText =
+            $"Total: {analysis.EvidenceSummary.TotalCount}; " +
+            $"with citations: {analysis.EvidenceSummary.WithCitationCount}; " +
+            $"missing citations: {analysis.EvidenceSummary.MissingCitationCount}; " +
+            $"with confidence: {analysis.EvidenceSummary.WithConfidenceCount}; " +
+            $"missing confidence: {analysis.EvidenceSummary.MissingConfidenceCount}.";
     }
 
     private void PopulateEntityEditor(EntitySummaryViewModel? entity)

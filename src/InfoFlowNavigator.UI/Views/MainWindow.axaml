@@ -3,6 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="using:InfoFlowNavigator.UI.ViewModels"
+        xmlns:analysis="using:InfoFlowNavigator.Application.Analysis"
         x:Class="InfoFlowNavigator.UI.Views.MainWindow"
         x:DataType="vm:ShellViewModel"
         Width="1280"
@@ -176,15 +177,42 @@
             </Border>
 
             <Border Grid.Column="1" Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
-              <StackPanel Spacing="8">
-                <TextBlock Classes="section-title" FontSize="18" Text="Slice Boundaries" />
-                <TextBlock Foreground="#243B53" Text="JSON workspace persistence" />
-                <TextBlock Foreground="#243B53" Text="Entity editing and deletion" />
-                <TextBlock Foreground="#243B53" Text="Relationship and evidence maintenance in-shell" TextWrapping="Wrap" />
-                <TextBlock Foreground="#243B53" Text="No graph, timeline, or GraphML workflows in this slice" TextWrapping="Wrap" />
+              <StackPanel Spacing="10">
+                <TextBlock Classes="section-title" FontSize="18" Text="Analysis Snapshot" />
+                <TextBlock Classes="label" Text="Entity Types" />
+                <TextBlock Foreground="#243B53" Text="{Binding EntityTypeSummary}" TextWrapping="Wrap" />
+                <TextBlock Classes="label" Text="Orphan Entities" />
+                <TextBlock Foreground="#243B53" Text="{Binding OrphanEntitySummary}" TextWrapping="Wrap" />
+                <TextBlock Classes="label" Text="Top Connected" />
+                <TextBlock Foreground="#243B53" Text="{Binding TopConnectedEntitySummary}" TextWrapping="Wrap" />
+                <TextBlock Classes="label" Text="Evidence Summary" />
+                <TextBlock Foreground="#243B53" Text="{Binding EvidenceSummaryText}" TextWrapping="Wrap" />
               </StackPanel>
             </Border>
           </Grid>
+
+          <Border Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
+            <StackPanel Spacing="10">
+              <TextBlock Classes="section-title" FontSize="18" Text="Findings" />
+              <TextBlock Classes="muted"
+                         Text="Explainable insights are derived directly from the current workspace state."
+                         TextWrapping="Wrap" />
+              <ItemsControl ItemsSource="{Binding Findings}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="analysis:AnalysisFinding">
+                    <Border Margin="0,0,0,8" Padding="10" Background="#EEF4FB" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="8">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Foreground="#14213D" Text="{Binding Title}" />
+                        <TextBlock Foreground="#243B53" Text="{Binding Detail}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="label" Text="Relationships Missing Confidence" />
+              <TextBlock Foreground="#243B53" Text="{Binding MissingConfidenceRelationshipSummary}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Border>
 
           <Grid ColumnDefinitions="*,*" ColumnSpacing="18">
             <Border Padding="16" Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12">
