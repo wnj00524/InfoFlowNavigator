@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/InfoFlowNavigator.App/InfoFlowNavigator.App.csproj" />
+    <Project Path="src/InfoFlowNavigator.Application/InfoFlowNavigator.Application.csproj" />
+    <Project Path="src/InfoFlowNavigator.Domain/InfoFlowNavigator.Domain.csproj" />
+    <Project Path="src/InfoFlowNavigator.Infrastructure/InfoFlowNavigator.Infrastructure.csproj" />
+    <Project Path="src/InfoFlowNavigator.UI/InfoFlowNavigator.UI.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/InfoFlowNavigator.Application.Tests/InfoFlowNavigator.Application.Tests.csproj" />
+    <Project Path="tests/InfoFlowNavigator.Domain.Tests/InfoFlowNavigator.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

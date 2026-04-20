@@ -1,0 +1,87 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:InfoFlowNavigator.UI.ViewModels"
+        x:Class="InfoFlowNavigator.UI.Views.MainWindow"
+        x:DataType="vm:ShellViewModel"
+        Width="960"
+        Height="640"
+        MinWidth="760"
+        MinHeight="520"
+        Title="{Binding Title}"
+        mc:Ignorable="d"
+        d:DesignWidth="960"
+        d:DesignHeight="640">
+  <Grid RowDefinitions="Auto,Auto,*" Margin="24">
+    <StackPanel Spacing="6">
+      <TextBlock FontSize="28"
+                 FontWeight="SemiBold"
+                 Text="{Binding Title}" />
+      <TextBlock FontSize="16"
+                 Foreground="#52606D"
+                 Text="{Binding Subtitle}" />
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            Margin="0,24,0,24"
+            Padding="18"
+            Background="#112B3C"
+            CornerRadius="12">
+      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+        <TextBlock FontSize="20"
+                   FontWeight="SemiBold"
+                   Foreground="White"
+                   Text="{Binding Workspace.Name}" />
+        <TextBlock Grid.Row="1"
+                   Margin="0,8,0,0"
+                   Foreground="#D9E2EC"
+                   Text="Bootstrap shell for the first workspace-centric vertical slice." />
+        <TextBlock Grid.Column="1"
+                   Grid.RowSpan="2"
+                   VerticalAlignment="Center"
+                   Foreground="#9FB3C8"
+                   Text="JSON-first" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="2*,3*">
+      <Border Margin="0,0,12,0"
+              Padding="18"
+              Background="#F5F7FA"
+              CornerRadius="12">
+        <StackPanel Spacing="12">
+          <TextBlock FontSize="18"
+                     FontWeight="SemiBold"
+                     Text="Workspace Snapshot" />
+          <TextBlock Text="{Binding Workspace.Id, StringFormat='Workspace Id: {0}'}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Workspace.CreatedAtUtc, StringFormat='Created (UTC): {0:yyyy-MM-dd HH:mm:ss}'}" />
+          <TextBlock Text="{Binding Workspace.Entities.Count, StringFormat='Entities: {0}'}" />
+          <TextBlock Text="{Binding Workspace.Relationships.Count, StringFormat='Relationships: {0}'}" />
+          <TextBlock Text="{Binding Workspace.Events.Count, StringFormat='Events: {0}'}" />
+          <TextBlock Text="{Binding Workspace.Sources.Count, StringFormat='Sources: {0}'}" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1"
+              Margin="12,0,0,0"
+              Padding="18"
+              Background="#FFFDF7"
+              CornerRadius="12">
+        <StackPanel Spacing="12">
+          <TextBlock FontSize="18"
+                     FontWeight="SemiBold"
+                     Text="Planned Capabilities" />
+          <ItemsControl ItemsSource="{Binding PlannedCapabilities}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding ., StringFormat='• {0}'}"
+                           TextWrapping="Wrap" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

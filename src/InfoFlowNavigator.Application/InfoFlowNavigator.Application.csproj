@@ -1,0 +1,7 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\InfoFlowNavigator.Domain\InfoFlowNavigator.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
