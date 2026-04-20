@@ -20,7 +20,7 @@ internal static class CompositionRoot
         _ = new GraphMlWorkspaceAdapter();
         _ = new PlainTextReportGenerator(analysisService);
 
-        var shellViewModel = new ShellViewModel(workspaceService, analysisService);
+        var shellViewModel = new WorkspaceShellViewModel(workspaceService, analysisService);
         return new MainWindow(shellViewModel);
     }
 }
