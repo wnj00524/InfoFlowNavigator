@@ -41,9 +41,34 @@ public partial class MainWindow : Window
         TryRun(() => ViewModel.AddEntity());
     }
 
+    private void UpdateEntity_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.UpdateSelectedEntity());
+    }
+
+    private void DeleteEntity_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.DeleteSelectedEntity());
+    }
+
     private void AddRelationship_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         TryRun(() => ViewModel.AddRelationship());
+    }
+
+    private void DeleteRelationship_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.DeleteSelectedRelationship());
+    }
+
+    private void SaveEvidence_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.SaveEvidence());
+    }
+
+    private void DeleteEvidence_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.DeleteSelectedEvidence());
     }
 
     private void TryRun(Action action)
