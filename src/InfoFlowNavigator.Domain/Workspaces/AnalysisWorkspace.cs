@@ -62,6 +62,46 @@ public sealed record AnalysisWorkspace(
         };
     }
 
+    public AnalysisWorkspace UpdateEntity(Entity entity)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+
+        if (!Entities.Any(existing => existing.Id == entity.Id))
+        {
+            throw new InvalidOperationException($"Entity '{entity.Id}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Entities = Entities.Select(existing => existing.Id == entity.Id ? entity : existing).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace RemoveEntity(Guid entityId)
+    {
+        if (entityId == Guid.Empty)
+        {
+            throw new ArgumentException("Entity id is required.", nameof(entityId));
+        }
+
+        if (!Entities.Any(entity => entity.Id == entityId))
+        {
+            throw new InvalidOperationException($"Entity '{entityId}' does not exist in the workspace.");
+        }
+
+        if (Relationships.Any(relationship => relationship.SourceEntityId == entityId || relationship.TargetEntityId == entityId))
+        {
+            throw new InvalidOperationException("Cannot remove entity while relationships still reference it.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Entities = Entities.Where(entity => entity.Id != entityId).ToArray()
+        };
+    }
+
     public AnalysisWorkspace AddRelationship(Relationship relationship)
     {
         ArgumentNullException.ThrowIfNull(relationship);
@@ -85,6 +125,76 @@ public sealed record AnalysisWorkspace(
         {
             UpdatedAtUtc = DateTimeOffset.UtcNow,
             Relationships = Relationships.Concat([relationship]).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace RemoveRelationship(Guid relationshipId)
+    {
+        if (relationshipId == Guid.Empty)
+        {
+            throw new ArgumentException("Relationship id is required.", nameof(relationshipId));
+        }
+
+        if (!Relationships.Any(relationship => relationship.Id == relationshipId))
+        {
+            throw new InvalidOperationException($"Relationship '{relationshipId}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Relationships = Relationships.Where(relationship => relationship.Id != relationshipId).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace AddEvidence(WorkspaceEvidence evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+
+        if (Evidence.Any(existing => existing.Id == evidence.Id))
+        {
+            throw new InvalidOperationException($"Evidence '{evidence.Id}' already exists in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Evidence = Evidence.Concat([evidence]).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace UpdateEvidence(WorkspaceEvidence evidence)
+    {
+        ArgumentNullException.ThrowIfNull(evidence);
+
+        if (!Evidence.Any(existing => existing.Id == evidence.Id))
+        {
+            throw new InvalidOperationException($"Evidence '{evidence.Id}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Evidence = Evidence.Select(existing => existing.Id == evidence.Id ? evidence : existing).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace RemoveEvidence(Guid evidenceId)
+    {
+        if (evidenceId == Guid.Empty)
+        {
+            throw new ArgumentException("Evidence id is required.", nameof(evidenceId));
+        }
+
+        if (!Evidence.Any(evidence => evidence.Id == evidenceId))
+        {
+            throw new InvalidOperationException($"Evidence '{evidenceId}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Evidence = Evidence.Where(evidence => evidence.Id != evidenceId).ToArray()
         };
     }
 

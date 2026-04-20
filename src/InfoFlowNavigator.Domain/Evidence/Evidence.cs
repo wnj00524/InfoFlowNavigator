@@ -34,4 +34,22 @@ public sealed record Evidence(
             now,
             now);
     }
+
+    public Evidence Update(
+        string title,
+        string? citation = null,
+        string? notes = null,
+        double? confidence = null,
+        IEnumerable<string>? tags = null,
+        IReadOnlyDictionary<string, string>? metadata = null) =>
+        this with
+        {
+            Title = DomainValidation.Required(title, nameof(title), "Evidence title is required."),
+            Citation = string.IsNullOrWhiteSpace(citation) ? null : citation.Trim(),
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+            Confidence = DomainValidation.NormalizeConfidence(confidence, nameof(confidence)),
+            Tags = DomainValidation.NormalizeTags(tags),
+            Metadata = DomainValidation.NormalizeMetadata(metadata),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
 }

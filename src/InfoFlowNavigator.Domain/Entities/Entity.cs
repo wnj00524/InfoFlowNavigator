@@ -34,4 +34,22 @@ public sealed record Entity(
             now,
             now);
     }
+
+    public Entity Update(
+        string name,
+        string entityType,
+        string? notes = null,
+        double? confidence = null,
+        IEnumerable<string>? tags = null,
+        IReadOnlyDictionary<string, string>? metadata = null) =>
+        this with
+        {
+            Name = DomainValidation.Required(name, nameof(name), "Entity name is required."),
+            EntityType = DomainValidation.Required(entityType, nameof(entityType), "Entity type is required."),
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+            Confidence = DomainValidation.NormalizeConfidence(confidence, nameof(confidence)),
+            Tags = DomainValidation.NormalizeTags(tags),
+            Metadata = DomainValidation.NormalizeMetadata(metadata),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
 }

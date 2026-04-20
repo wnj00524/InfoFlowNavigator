@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using InfoFlowNavigator.Application.Workspaces;
 using InfoFlowNavigator.Domain.Workspaces;
@@ -17,6 +18,17 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private string _relationshipType = "associated_with";
     private EntityOptionViewModel? _selectedSourceEntity;
     private EntityOptionViewModel? _selectedTargetEntity;
+    private EntitySummaryViewModel? _selectedEntity;
+    private string _editableEntityName = string.Empty;
+    private string _editableEntityType = string.Empty;
+    private string _editableEntityNotes = string.Empty;
+    private string _editableEntityConfidenceText = string.Empty;
+    private RelationshipSummaryViewModel? _selectedRelationship;
+    private EvidenceSummaryViewModel? _selectedEvidence;
+    private string _evidenceTitle = string.Empty;
+    private string _evidenceCitation = string.Empty;
+    private string _evidenceNotes = string.Empty;
+    private string _evidenceConfidenceText = string.Empty;
     private string _statusMessage;
 
     public ShellViewModel(WorkspaceApplicationService workspaceService)
@@ -27,6 +39,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
         Entities = new ObservableCollection<EntitySummaryViewModel>();
         Relationships = new ObservableCollection<RelationshipSummaryViewModel>();
+        EvidenceItems = new ObservableCollection<EvidenceSummaryViewModel>();
         RelationshipEntityOptions = new ObservableCollection<EntityOptionViewModel>();
 
         WorkspaceName = _workspace.Name;
@@ -37,7 +50,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string Title => "Info Flow Navigator";
 
-    public string Subtitle => "Workspace core slice";
+    public string Subtitle => "Analyst workspace slice";
 
     public string WorkspaceName
     {
@@ -81,6 +94,87 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         set => SetField(ref _selectedTargetEntity, value);
     }
 
+    public EntitySummaryViewModel? SelectedEntity
+    {
+        get => _selectedEntity;
+        set
+        {
+            if (SetField(ref _selectedEntity, value))
+            {
+                PopulateEntityEditor(value);
+            }
+        }
+    }
+
+    public string EditableEntityName
+    {
+        get => _editableEntityName;
+        set => SetField(ref _editableEntityName, value);
+    }
+
+    public string EditableEntityType
+    {
+        get => _editableEntityType;
+        set => SetField(ref _editableEntityType, value);
+    }
+
+    public string EditableEntityNotes
+    {
+        get => _editableEntityNotes;
+        set => SetField(ref _editableEntityNotes, value);
+    }
+
+    public string EditableEntityConfidenceText
+    {
+        get => _editableEntityConfidenceText;
+        set => SetField(ref _editableEntityConfidenceText, value);
+    }
+
+    public RelationshipSummaryViewModel? SelectedRelationship
+    {
+        get => _selectedRelationship;
+        set => SetField(ref _selectedRelationship, value);
+    }
+
+    public EvidenceSummaryViewModel? SelectedEvidence
+    {
+        get => _selectedEvidence;
+        set
+        {
+            if (SetField(ref _selectedEvidence, value))
+            {
+                PopulateEvidenceEditor(value);
+                OnPropertyChanged(nameof(EvidenceActionLabel));
+            }
+        }
+    }
+
+    public string EvidenceTitle
+    {
+        get => _evidenceTitle;
+        set => SetField(ref _evidenceTitle, value);
+    }
+
+    public string EvidenceCitation
+    {
+        get => _evidenceCitation;
+        set => SetField(ref _evidenceCitation, value);
+    }
+
+    public string EvidenceNotes
+    {
+        get => _evidenceNotes;
+        set => SetField(ref _evidenceNotes, value);
+    }
+
+    public string EvidenceConfidenceText
+    {
+        get => _evidenceConfidenceText;
+        set => SetField(ref _evidenceConfidenceText, value);
+    }
+
+    public string EvidenceActionLabel => SelectedEvidence is null ? "Add Evidence" : "Update Evidence";
+
     public string StatusMessage
     {
         get => _statusMessage;
@@ -96,6 +190,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             {
                 OnPropertyChanged(nameof(WorkspaceEntityCount));
                 OnPropertyChanged(nameof(WorkspaceRelationshipCount));
+                OnPropertyChanged(nameof(WorkspaceEvidenceCount));
                 OnPropertyChanged(nameof(WorkspaceCreatedAt));
                 OnPropertyChanged(nameof(WorkspaceUpdatedAt));
                 OnPropertyChanged(nameof(WorkspaceId));
@@ -107,6 +202,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public int WorkspaceRelationshipCount => Workspace.Relationships.Count;
 
+    public int WorkspaceEvidenceCount => Workspace.Evidence.Count;
+
     public string WorkspaceId => Workspace.Id.ToString();
 
     public string WorkspaceCreatedAt => Workspace.CreatedAtUtc.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
@@ -116,6 +213,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public ObservableCollection<EntitySummaryViewModel> Entities { get; }
 
     public ObservableCollection<RelationshipSummaryViewModel> Relationships { get; }
+
+    public ObservableCollection<EvidenceSummaryViewModel> EvidenceItems { get; }
 
     public ObservableCollection<EntityOptionViewModel> RelationshipEntityOptions { get; }
 
@@ -150,6 +249,39 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         StatusMessage = "Added entity to the workspace.";
     }
 
+    public void UpdateSelectedEntity()
+    {
+        if (SelectedEntity is null)
+        {
+            throw new InvalidOperationException("Select an entity to update.");
+        }
+
+        var confidence = ParseOptionalConfidence(EditableEntityConfidenceText, "Entity confidence");
+
+        SetWorkspace(
+            _workspaceService.UpdateEntity(
+                Workspace,
+                SelectedEntity.Id,
+                EditableEntityName,
+                EditableEntityType,
+                EditableEntityNotes,
+                confidence));
+
+        StatusMessage = "Updated selected entity.";
+    }
+
+    public void DeleteSelectedEntity()
+    {
+        if (SelectedEntity is null)
+        {
+            throw new InvalidOperationException("Select an entity to delete.");
+        }
+
+        var deletedEntityName = SelectedEntity.Name;
+        SetWorkspace(_workspaceService.RemoveEntity(Workspace, SelectedEntity.Id));
+        StatusMessage = $"Deleted entity '{deletedEntityName}'.";
+    }
+
     public void AddRelationship()
     {
         if (SelectedSourceEntity is null || SelectedTargetEntity is null)
@@ -167,6 +299,52 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         StatusMessage = "Added relationship to the workspace.";
     }
 
+    public void DeleteSelectedRelationship()
+    {
+        if (SelectedRelationship is null)
+        {
+            throw new InvalidOperationException("Select a relationship to delete.");
+        }
+
+        SetWorkspace(_workspaceService.RemoveRelationship(Workspace, SelectedRelationship.Id));
+        StatusMessage = "Deleted selected relationship.";
+    }
+
+    public void SaveEvidence()
+    {
+        var confidence = ParseOptionalConfidence(EvidenceConfidenceText, "Evidence confidence");
+
+        if (SelectedEvidence is null)
+        {
+            SetWorkspace(_workspaceService.AddEvidence(Workspace, EvidenceTitle, EvidenceCitation, EvidenceNotes, confidence));
+            StatusMessage = "Added evidence to the workspace.";
+            return;
+        }
+
+        SetWorkspace(
+            _workspaceService.UpdateEvidence(
+                Workspace,
+                SelectedEvidence.Id,
+                EvidenceTitle,
+                EvidenceCitation,
+                EvidenceNotes,
+                confidence));
+
+        StatusMessage = "Updated selected evidence.";
+    }
+
+    public void DeleteSelectedEvidence()
+    {
+        if (SelectedEvidence is null)
+        {
+            throw new InvalidOperationException("Select evidence to delete.");
+        }
+
+        var deletedEvidenceTitle = SelectedEvidence.Title;
+        SetWorkspace(_workspaceService.RemoveEvidence(Workspace, SelectedEvidence.Id));
+        StatusMessage = $"Deleted evidence '{deletedEvidenceTitle}'.";
+    }
+
     public void SetStatus(string message) => StatusMessage = message;
 
     private void SetWorkspace(AnalysisWorkspace workspace)
@@ -178,10 +356,16 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     private void RefreshWorkspaceState()
     {
+        var selectedEntityId = SelectedEntity?.Id;
+        var selectedRelationshipId = SelectedRelationship?.Id;
+        var selectedEvidenceId = SelectedEvidence?.Id;
+        var selectedSourceEntityId = SelectedSourceEntity?.Id;
+        var selectedTargetEntityId = SelectedTargetEntity?.Id;
+
         Entities.Clear();
         foreach (var entity in Workspace.Entities)
         {
-            Entities.Add(new EntitySummaryViewModel(entity.Id, entity.Name, entity.EntityType));
+            Entities.Add(new EntitySummaryViewModel(entity.Id, entity.Name, entity.EntityType, entity.Notes, entity.Confidence));
         }
 
         RelationshipEntityOptions.Clear();
@@ -195,13 +379,28 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         {
             var source = Workspace.Entities.FirstOrDefault(entity => entity.Id == relationship.SourceEntityId)?.Name ?? relationship.SourceEntityId.ToString();
             var target = Workspace.Entities.FirstOrDefault(entity => entity.Id == relationship.TargetEntityId)?.Name ?? relationship.TargetEntityId.ToString();
-            Relationships.Add(new RelationshipSummaryViewModel(relationship.Id, source, target, relationship.RelationshipType));
+            Relationships.Add(new RelationshipSummaryViewModel(relationship.Id, source, target, relationship.RelationshipType, relationship.Notes, relationship.Confidence));
         }
+
+        EvidenceItems.Clear();
+        foreach (var evidence in Workspace.Evidence)
+        {
+            EvidenceItems.Add(new EvidenceSummaryViewModel(evidence.Id, evidence.Title, evidence.Citation, evidence.Notes, evidence.Confidence));
+        }
+
+        SelectedEntity = selectedEntityId is null ? null : Entities.FirstOrDefault(entity => entity.Id == selectedEntityId);
+        SelectedRelationship = selectedRelationshipId is null ? null : Relationships.FirstOrDefault(relationship => relationship.Id == selectedRelationshipId);
+        SelectedEvidence = selectedEvidenceId is null ? null : EvidenceItems.FirstOrDefault(evidence => evidence.Id == selectedEvidenceId);
 
         if (RelationshipEntityOptions.Count > 0)
         {
-            SelectedSourceEntity ??= RelationshipEntityOptions[0];
-            SelectedTargetEntity ??= RelationshipEntityOptions[0];
+            SelectedSourceEntity = selectedSourceEntityId is null
+                ? RelationshipEntityOptions[0]
+                : RelationshipEntityOptions.FirstOrDefault(entity => entity.Id == selectedSourceEntityId) ?? RelationshipEntityOptions[0];
+
+            SelectedTargetEntity = selectedTargetEntityId is null
+                ? RelationshipEntityOptions[0]
+                : RelationshipEntityOptions.FirstOrDefault(entity => entity.Id == selectedTargetEntityId) ?? RelationshipEntityOptions[0];
         }
         else
         {
@@ -209,11 +408,84 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             SelectedTargetEntity = null;
         }
 
+        if (SelectedEntity is null)
+        {
+            ClearEntityEditor();
+        }
+
+        if (SelectedEvidence is null)
+        {
+            ClearEvidenceEditor();
+        }
+
         OnPropertyChanged(nameof(WorkspaceEntityCount));
         OnPropertyChanged(nameof(WorkspaceRelationshipCount));
+        OnPropertyChanged(nameof(WorkspaceEvidenceCount));
         OnPropertyChanged(nameof(WorkspaceCreatedAt));
         OnPropertyChanged(nameof(WorkspaceUpdatedAt));
         OnPropertyChanged(nameof(WorkspaceId));
+        OnPropertyChanged(nameof(EvidenceActionLabel));
+    }
+
+    private void PopulateEntityEditor(EntitySummaryViewModel? entity)
+    {
+        if (entity is null)
+        {
+            ClearEntityEditor();
+            return;
+        }
+
+        var domainEntity = Workspace.Entities.First(existing => existing.Id == entity.Id);
+        EditableEntityName = domainEntity.Name;
+        EditableEntityType = domainEntity.EntityType;
+        EditableEntityNotes = domainEntity.Notes ?? string.Empty;
+        EditableEntityConfidenceText = domainEntity.Confidence?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+    }
+
+    private void PopulateEvidenceEditor(EvidenceSummaryViewModel? evidence)
+    {
+        if (evidence is null)
+        {
+            ClearEvidenceEditor();
+            return;
+        }
+
+        var domainEvidence = Workspace.Evidence.First(existing => existing.Id == evidence.Id);
+        EvidenceTitle = domainEvidence.Title;
+        EvidenceCitation = domainEvidence.Citation ?? string.Empty;
+        EvidenceNotes = domainEvidence.Notes ?? string.Empty;
+        EvidenceConfidenceText = domainEvidence.Confidence?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+    }
+
+    private void ClearEntityEditor()
+    {
+        EditableEntityName = string.Empty;
+        EditableEntityType = string.Empty;
+        EditableEntityNotes = string.Empty;
+        EditableEntityConfidenceText = string.Empty;
+    }
+
+    private void ClearEvidenceEditor()
+    {
+        EvidenceTitle = string.Empty;
+        EvidenceCitation = string.Empty;
+        EvidenceNotes = string.Empty;
+        EvidenceConfidenceText = string.Empty;
+    }
+
+    private static double? ParseOptionalConfidence(string text, string fieldName)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        if (!double.TryParse(text.Trim(), NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out var value))
+        {
+            throw new InvalidOperationException($"{fieldName} must be a valid number between 0.0 and 1.0.");
+        }
+
+        return value;
     }
 
     private void EnsurePathProvided()
@@ -240,14 +512,25 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
 
-public sealed record EntitySummaryViewModel(Guid Id, string Name, string EntityType)
+public sealed record EntitySummaryViewModel(Guid Id, string Name, string EntityType, string? Notes, double? Confidence)
 {
     public string DisplayName => $"{Name} ({EntityType})";
 }
 
 public sealed record EntityOptionViewModel(Guid Id, string DisplayName);
 
-public sealed record RelationshipSummaryViewModel(Guid Id, string SourceName, string TargetName, string RelationshipType)
+public sealed record RelationshipSummaryViewModel(
+    Guid Id,
+    string SourceName,
+    string TargetName,
+    string RelationshipType,
+    string? Notes,
+    double? Confidence)
 {
     public string DisplayName => $"{SourceName} -> {RelationshipType} -> {TargetName}";
+}
+
+public sealed record EvidenceSummaryViewModel(Guid Id, string Title, string? Citation, string? Notes, double? Confidence)
+{
+    public string DisplayName => Title;
 }
