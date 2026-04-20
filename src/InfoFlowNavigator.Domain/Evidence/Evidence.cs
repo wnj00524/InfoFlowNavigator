@@ -1,11 +1,11 @@
 using InfoFlowNavigator.Domain.Common;
 
-namespace InfoFlowNavigator.Domain.Events;
+namespace InfoFlowNavigator.Domain.Evidence;
 
-public sealed record Event(
+public sealed record Evidence(
     Guid Id,
     string Title,
-    DateTimeOffset? OccurredAtUtc,
+    string? Citation,
     string? Notes,
     double? Confidence,
     IReadOnlyList<string> Tags,
@@ -13,9 +13,9 @@ public sealed record Event(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc)
 {
-    public static Event Create(
+    public static Evidence Create(
         string title,
-        DateTimeOffset? occurredAtUtc = null,
+        string? citation = null,
         string? notes = null,
         double? confidence = null,
         IEnumerable<string>? tags = null,
@@ -23,10 +23,10 @@ public sealed record Event(
     {
         var now = DateTimeOffset.UtcNow;
 
-        return new Event(
+        return new Evidence(
             Guid.NewGuid(),
-            DomainValidation.Required(title, nameof(title), "Event title is required."),
-            occurredAtUtc,
+            DomainValidation.Required(title, nameof(title), "Evidence title is required."),
+            string.IsNullOrWhiteSpace(citation) ? null : citation.Trim(),
             string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
             DomainValidation.NormalizeConfidence(confidence, nameof(confidence)),
             DomainValidation.NormalizeTags(tags),

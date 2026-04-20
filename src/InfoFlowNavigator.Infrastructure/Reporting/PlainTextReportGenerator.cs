@@ -15,7 +15,7 @@ public sealed class PlainTextReportGenerator : IReportGenerator
             .AppendLine($"Entities: {workspace.Entities.Count}")
             .AppendLine($"Relationships: {workspace.Relationships.Count}")
             .AppendLine($"Events: {workspace.Events.Count}")
-            .AppendLine($"Sources: {workspace.Sources.Count}");
+            .AppendLine($"Evidence: {workspace.Evidence.Count}");
 
         return Task.FromResult(new ReportArtifact(
             "workspace-summary.txt",
