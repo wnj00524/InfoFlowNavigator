@@ -34,4 +34,22 @@ public sealed record Event(
             now,
             now);
     }
+
+    public Event Update(
+        string title,
+        DateTimeOffset? occurredAtUtc = null,
+        string? notes = null,
+        double? confidence = null,
+        IEnumerable<string>? tags = null,
+        IReadOnlyDictionary<string, string>? metadata = null) =>
+        this with
+        {
+            Title = DomainValidation.Required(title, nameof(title), "Event title is required."),
+            OccurredAtUtc = occurredAtUtc,
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+            Confidence = DomainValidation.NormalizeConfidence(confidence, nameof(confidence)),
+            Tags = DomainValidation.NormalizeTags(tags),
+            Metadata = DomainValidation.NormalizeMetadata(metadata),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
 }

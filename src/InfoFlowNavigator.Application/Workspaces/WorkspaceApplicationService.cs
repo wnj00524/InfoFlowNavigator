@@ -1,6 +1,8 @@
 using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Domain.Entities;
 using WorkspaceEvidence = InfoFlowNavigator.Domain.Evidence.Evidence;
+using InfoFlowNavigator.Domain.Events;
+using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Relationships;
 using InfoFlowNavigator.Domain.Workspaces;
 
@@ -78,6 +80,41 @@ public sealed class WorkspaceApplicationService
         return workspace.RemoveRelationship(relationshipId);
     }
 
+    public AnalysisWorkspace AddEvent(
+        AnalysisWorkspace workspace,
+        string title,
+        DateTimeOffset? occurredAtUtc = null,
+        string? notes = null,
+        double? confidence = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var @event = Event.Create(title, occurredAtUtc, notes, confidence);
+        return workspace.AddEvent(@event);
+    }
+
+    public AnalysisWorkspace UpdateEvent(
+        AnalysisWorkspace workspace,
+        Guid eventId,
+        string title,
+        DateTimeOffset? occurredAtUtc = null,
+        string? notes = null,
+        double? confidence = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var existing = workspace.Events.FirstOrDefault(@event => @event.Id == eventId)
+            ?? throw new InvalidOperationException($"Event '{eventId}' does not exist in the workspace.");
+
+        return workspace.UpdateEvent(existing.Update(title, occurredAtUtc, notes, confidence, existing.Tags, existing.Metadata));
+    }
+
+    public AnalysisWorkspace RemoveEvent(AnalysisWorkspace workspace, Guid eventId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        return workspace.RemoveEvent(eventId);
+    }
+
     public AnalysisWorkspace AddEvidence(
         AnalysisWorkspace workspace,
         string title,
@@ -111,6 +148,55 @@ public sealed class WorkspaceApplicationService
     {
         ArgumentNullException.ThrowIfNull(workspace);
         return workspace.RemoveEvidence(evidenceId);
+    }
+
+    public AnalysisWorkspace AddEvidenceLink(
+        AnalysisWorkspace workspace,
+        Guid evidenceId,
+        EvidenceLinkTargetKind targetKind,
+        Guid targetId,
+        string? role = null,
+        string? notes = null,
+        double? confidence = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var evidenceLink = EvidenceLink.Create(evidenceId, targetKind, targetId, role, notes, confidence);
+        return workspace.AddEvidenceLink(evidenceLink);
+    }
+
+    public AnalysisWorkspace RemoveEvidenceLink(AnalysisWorkspace workspace, Guid evidenceLinkId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        return workspace.RemoveEvidenceLink(evidenceLinkId);
+    }
+
+    public IReadOnlyList<LinkedEvidenceSummary> GetLinkedEvidenceByTarget(
+        AnalysisWorkspace workspace,
+        EvidenceLinkTargetKind targetKind,
+        Guid targetId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        return workspace.EvidenceLinks
+            .Where(link => link.TargetKind == targetKind && link.TargetId == targetId)
+            .Join(
+                workspace.Evidence,
+                link => link.EvidenceId,
+                evidence => evidence.Id,
+                (link, evidence) => new LinkedEvidenceSummary(
+                    link.Id,
+                    evidence.Id,
+                    evidence.Title,
+                    evidence.Citation,
+                    link.TargetKind,
+                    link.TargetId,
+                    link.Role,
+                    link.Notes,
+                    link.Confidence))
+            .OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.EvidenceId)
+            .ToArray();
     }
 
     public Task<AnalysisWorkspace> OpenAsync(string path, CancellationToken cancellationToken = default) =>

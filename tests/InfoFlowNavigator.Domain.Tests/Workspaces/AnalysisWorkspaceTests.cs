@@ -1,5 +1,7 @@
 using InfoFlowNavigator.Domain.Entities;
 using WorkspaceEvidence = InfoFlowNavigator.Domain.Evidence.Evidence;
+using InfoFlowNavigator.Domain.EvidenceLinks;
+using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.Relationships;
 using InfoFlowNavigator.Domain.Workspaces;
 
@@ -18,52 +20,14 @@ public sealed class AnalysisWorkspaceTests
         Assert.Empty(workspace.Relationships);
         Assert.Empty(workspace.Events);
         Assert.Empty(workspace.Evidence);
-    }
-
-    [Fact]
-    public void AddRelationship_WhenEntitiesExist_AddsRelationship()
-    {
-        var entityA = Entity.Create("Alice", "Person");
-        var entityB = Entity.Create("Contoso", "Organization");
-        var workspace = AnalysisWorkspace
-            .CreateNew("Case Alpha")
-            .AddEntity(entityA)
-            .AddEntity(entityB);
-
-        var updated = workspace.AddRelationship(Relationship.Create(entityA.Id, entityB.Id, "employed_by"));
-
-        Assert.Single(updated.Relationships);
-        Assert.Equal(entityA.Id, updated.Relationships[0].SourceEntityId);
-        Assert.Equal(entityB.Id, updated.Relationships[0].TargetEntityId);
-    }
-
-    [Fact]
-    public void AddRelationship_WhenEntityMissing_Throws()
-    {
-        var entityA = Entity.Create("Alice", "Person");
-        var workspace = AnalysisWorkspace.CreateNew("Case Alpha").AddEntity(entityA);
-
-        var act = () => workspace.AddRelationship(Relationship.Create(entityA.Id, Guid.NewGuid(), "linked_to"));
-
-        var ex = Assert.Throws<InvalidOperationException>(act);
-        Assert.Contains("target entity", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(workspace.EvidenceLinks);
     }
 
     [Fact]
     public void UpdateEntity_UpdatesValuesAndWorkspaceUpdatedAtUtc()
     {
         var createdAt = DateTimeOffset.UtcNow.AddMinutes(-10);
-        var entity = new Entity(
-            Guid.NewGuid(),
-            "Alice",
-            "Person",
-            "Initial notes",
-            0.2,
-            [],
-            new Dictionary<string, string>(),
-            createdAt,
-            createdAt);
-
+        var entity = new Entity(Guid.NewGuid(), "Alice", "Person", "Initial notes", 0.2, [], new Dictionary<string, string>(), createdAt, createdAt);
         var workspace = new AnalysisWorkspace(
             AnalysisWorkspace.CurrentSchemaVersion,
             Guid.NewGuid(),
@@ -73,6 +37,7 @@ public sealed class AnalysisWorkspaceTests
             createdAt,
             createdAt,
             [entity],
+            [],
             [],
             [],
             []);
@@ -89,14 +54,46 @@ public sealed class AnalysisWorkspaceTests
     }
 
     [Fact]
-    public void RemoveEntity_WithoutRelationships_Succeeds()
+    public void AddAndUpdateEvent_Succeeds()
     {
-        var entity = Entity.Create("Alice", "Person");
-        var workspace = AnalysisWorkspace.CreateNew("Case Alpha").AddEntity(entity);
+        var occurredAt = DateTimeOffset.Parse("2026-04-20T12:00:00Z", null, System.Globalization.DateTimeStyles.RoundtripKind);
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha");
 
-        var updated = workspace.RemoveEntity(entity.Id);
+        var added = workspace.AddEvent(Event.Create("Meeting", occurredAt, "Observed"));
+        var updated = added.UpdateEvent(added.Events[0].Update("Meeting revised", occurredAt.AddHours(1), "Revised", 0.8));
 
-        Assert.Empty(updated.Entities);
+        Assert.Single(updated.Events);
+        Assert.Equal("Meeting revised", updated.Events[0].Title);
+        Assert.Equal("Revised", updated.Events[0].Notes);
+        Assert.Equal(0.8, updated.Events[0].Confidence);
+    }
+
+    [Fact]
+    public void RemoveEvent_WithReferencingEvidenceLink_Throws()
+    {
+        var evidence = WorkspaceEvidence.Create("Interview");
+        var @event = Event.Create("Meeting");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddEvidence(evidence)
+            .AddEvent(@event)
+            .AddEvidenceLink(EvidenceLink.Create(evidence.Id, EvidenceLinkTargetKind.Event, @event.Id));
+
+        var act = () => workspace.RemoveEvent(@event.Id);
+
+        var ex = Assert.Throws<InvalidOperationException>(act);
+        Assert.Contains("evidence links still reference", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AddRelationship_WhenEntityMissing_Throws()
+    {
+        var entityA = Entity.Create("Alice", "Person");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha").AddEntity(entityA);
+
+        var act = () => workspace.AddRelationship(Relationship.Create(entityA.Id, Guid.NewGuid(), "linked_to"));
+
+        var ex = Assert.Throws<InvalidOperationException>(act);
+        Assert.Contains("target entity", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -116,78 +113,46 @@ public sealed class AnalysisWorkspaceTests
     }
 
     [Fact]
-    public void RemoveRelationship_Succeeds()
+    public void AddEvidenceLink_WithMissingEvidence_Throws()
     {
-        var entityA = Entity.Create("Alice", "Person");
-        var entityB = Entity.Create("Contoso", "Organization");
-        var relationship = Relationship.Create(entityA.Id, entityB.Id, "works_for");
+        var entity = Entity.Create("Alice", "Person");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha").AddEntity(entity);
+
+        var act = () => workspace.AddEvidenceLink(EvidenceLink.Create(Guid.NewGuid(), EvidenceLinkTargetKind.Entity, entity.Id));
+
+        var ex = Assert.Throws<InvalidOperationException>(act);
+        Assert.Contains("existing evidence", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AddAndRemoveEvidenceLink_Succeeds()
+    {
+        var entity = Entity.Create("Alice", "Person");
+        var evidence = WorkspaceEvidence.Create("Interview");
         var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
-            .AddEntity(entityA)
-            .AddEntity(entityB)
-            .AddRelationship(relationship);
+            .AddEntity(entity)
+            .AddEvidence(evidence);
 
-        var updated = workspace.RemoveRelationship(relationship.Id);
+        var withLink = workspace.AddEvidenceLink(EvidenceLink.Create(evidence.Id, EvidenceLinkTargetKind.Entity, entity.Id, "supports"));
+        var removed = withLink.RemoveEvidenceLink(withLink.EvidenceLinks[0].Id);
 
-        Assert.Empty(updated.Relationships);
+        Assert.Single(withLink.EvidenceLinks);
+        Assert.Empty(removed.EvidenceLinks);
     }
 
     [Fact]
-    public void AddEvidence_Succeeds()
+    public void RemoveEvidence_WithReferencingEvidenceLink_Throws()
     {
-        var workspace = AnalysisWorkspace.CreateNew("Case Alpha");
+        var entity = Entity.Create("Alice", "Person");
+        var evidence = WorkspaceEvidence.Create("Interview");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddEntity(entity)
+            .AddEvidence(evidence)
+            .AddEvidenceLink(EvidenceLink.Create(evidence.Id, EvidenceLinkTargetKind.Entity, entity.Id));
 
-        var updated = workspace.AddEvidence(WorkspaceEvidence.Create("Analyst note", "Doc-1", "Observed pattern", 0.6));
+        var act = () => workspace.RemoveEvidence(evidence.Id);
 
-        Assert.Single(updated.Evidence);
-        Assert.Equal("Analyst note", updated.Evidence[0].Title);
-    }
-
-    [Fact]
-    public void UpdateEvidence_Succeeds()
-    {
-        var createdAt = DateTimeOffset.UtcNow.AddMinutes(-10);
-        var evidence = new WorkspaceEvidence(
-            Guid.NewGuid(),
-            "Initial title",
-            "Doc-1",
-            "Original note",
-            0.3,
-            [],
-            new Dictionary<string, string>(),
-            createdAt,
-            createdAt);
-
-        var workspace = new AnalysisWorkspace(
-            AnalysisWorkspace.CurrentSchemaVersion,
-            Guid.NewGuid(),
-            "Case Alpha",
-            null,
-            [],
-            createdAt,
-            createdAt,
-            [],
-            [],
-            [],
-            [evidence]);
-
-        var updatedEvidence = evidence.Update("Revised title", "Doc-2", "Updated note", 0.9);
-        var updatedWorkspace = workspace.UpdateEvidence(updatedEvidence);
-
-        Assert.Equal("Revised title", updatedWorkspace.Evidence[0].Title);
-        Assert.Equal("Doc-2", updatedWorkspace.Evidence[0].Citation);
-        Assert.Equal("Updated note", updatedWorkspace.Evidence[0].Notes);
-        Assert.Equal(0.9, updatedWorkspace.Evidence[0].Confidence);
-        Assert.True(updatedWorkspace.Evidence[0].UpdatedAtUtc > evidence.UpdatedAtUtc);
-    }
-
-    [Fact]
-    public void RemoveEvidence_Succeeds()
-    {
-        var evidence = WorkspaceEvidence.Create("Analyst note");
-        var workspace = AnalysisWorkspace.CreateNew("Case Alpha").AddEvidence(evidence);
-
-        var updated = workspace.RemoveEvidence(evidence.Id);
-
-        Assert.Empty(updated.Evidence);
+        var ex = Assert.Throws<InvalidOperationException>(act);
+        Assert.Contains("evidence links still reference", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

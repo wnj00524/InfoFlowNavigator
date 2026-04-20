@@ -72,6 +72,26 @@ public partial class MainWindow : Window
         TryRun(() => ViewModel.DeleteSelectedEvidence());
     }
 
+    private void SaveEvent_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.SaveEvent());
+    }
+
+    private void DeleteEvent_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.DeleteSelectedEvent());
+    }
+
+    private void AddEvidenceLink_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.AddEvidenceLink());
+    }
+
+    private void DeleteEvidenceLink_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        TryRun(() => ViewModel.DeleteSelectedEvidenceLink());
+    }
+
     private void TryRun(Action action)
     {
         try
@@ -113,6 +133,11 @@ public partial class MainWindow : Window
                 workspace.Relationships.Count,
                 workspace.Events.Count,
                 workspace.Evidence.Count,
+                workspace.EvidenceLinks.Count,
+                [],
+                [],
+                [],
+                [],
                 [],
                 [],
                 [],
