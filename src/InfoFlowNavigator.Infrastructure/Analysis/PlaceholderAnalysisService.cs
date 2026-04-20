@@ -12,7 +12,7 @@ public sealed class PlaceholderAnalysisService : IAnalysisService
             workspace.Entities.Count,
             workspace.Relationships.Count,
             workspace.Events.Count,
-            workspace.Sources.Count);
+            workspace.Evidence.Count);
 
         return Task.FromResult(summary);
     }

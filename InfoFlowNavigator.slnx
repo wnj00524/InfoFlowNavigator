@@ -9,5 +9,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/InfoFlowNavigator.Application.Tests/InfoFlowNavigator.Application.Tests.csproj" />
     <Project Path="tests/InfoFlowNavigator.Domain.Tests/InfoFlowNavigator.Domain.Tests.csproj" />
+    <Project Path="tests/InfoFlowNavigator.Infrastructure.Tests/InfoFlowNavigator.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>

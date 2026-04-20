@@ -21,9 +21,4 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\InfoFlowNavigator.Application\InfoFlowNavigator.Application.csproj" />
-    <ProjectReference Include="..\..\src\InfoFlowNavigator.Domain\InfoFlowNavigator.Domain.csproj" />
-  </ItemGroup>
-
 </Project>
