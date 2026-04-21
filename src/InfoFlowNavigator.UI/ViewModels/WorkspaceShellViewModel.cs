@@ -444,12 +444,20 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     {
         if (Events.SelectedEvent is null)
         {
-            throw new InvalidOperationException("Select an event first.");
+            StatusMessage = "Select an event first.";
+            return;
         }
 
         if (Events.SelectedParticipantEntity is null)
         {
-            throw new InvalidOperationException("Select an entity for the participant row.");
+            StatusMessage = "Select a participant.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Events.ParticipantRole))
+        {
+            StatusMessage = "Participant role is required.";
+            return;
         }
 
         var confidence = ParseOptionalConfidence(Events.ParticipantConfidenceText, "Participant confidence");
@@ -561,6 +569,12 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
     private void SaveHypothesis()
     {
+        if (string.IsNullOrWhiteSpace(Hypotheses.Title) || string.IsNullOrWhiteSpace(Hypotheses.Statement))
+        {
+            StatusMessage = "Hypothesis title and statement are required.";
+            return;
+        }
+
         var confidence = ParseOptionalConfidence(Hypotheses.ConfidenceText, "Hypothesis confidence");
         var status = Hypotheses.SelectedStatus?.Status ?? HypothesisStatus.Draft;
 

@@ -75,13 +75,25 @@ public sealed class HypothesesViewModel : EditorWorkflowViewModel
     public string Title
     {
         get => _title;
-        set => SetProperty(ref _title, value);
+        set
+        {
+            if (SetProperty(ref _title, value))
+            {
+                RaiseValidationStateChanged();
+            }
+        }
     }
 
     public string Statement
     {
         get => _statement;
-        set => SetProperty(ref _statement, value);
+        set
+        {
+            if (SetProperty(ref _statement, value))
+            {
+                RaiseValidationStateChanged();
+            }
+        }
     }
 
     public string Notes
@@ -109,6 +121,21 @@ public sealed class HypothesesViewModel : EditorWorkflowViewModel
     }
 
     public bool IsEmpty => Hypotheses.Count == 0;
+
+    public bool CanSaveHypothesis =>
+        !string.IsNullOrWhiteSpace(Title) &&
+        !string.IsNullOrWhiteSpace(Statement);
+
+    public bool ShowHypothesisValidationMessage => !CanSaveHypothesis;
+
+    public string HypothesisValidationMessage =>
+        (string.IsNullOrWhiteSpace(Title), string.IsNullOrWhiteSpace(Statement)) switch
+        {
+            (true, true) => "Hypothesis title and statement are required.",
+            (true, false) => "Hypothesis title is required.",
+            (false, true) => "Hypothesis statement is required.",
+            _ => "Title and statement are ready."
+        };
 
     public void BeginNewHypothesis()
     {
@@ -167,6 +194,13 @@ public sealed class HypothesesViewModel : EditorWorkflowViewModel
         ConfidenceText = string.Empty;
         SelectedStatus = StatusOptions.FirstOrDefault();
         UpdateEvidence([], [], "No hypothesis selected.", "Inference summaries will appear here.");
+    }
+
+    private void RaiseValidationStateChanged()
+    {
+        OnPropertyChanged(nameof(CanSaveHypothesis));
+        OnPropertyChanged(nameof(ShowHypothesisValidationMessage));
+        OnPropertyChanged(nameof(HypothesisValidationMessage));
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)

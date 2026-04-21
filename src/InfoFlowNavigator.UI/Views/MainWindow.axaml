@@ -850,7 +850,11 @@
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <TextBox Text="{Binding Events.ParticipantRole}" PlaceholderText="Role in event" />
+              <TextBlock Classes="label" Text="Participant Role (required)" />
+              <TextBlock Classes="muted"
+                         Text="Example: attendee, subject, organizer, witness"
+                         TextWrapping="Wrap" />
+              <TextBox Text="{Binding Events.ParticipantRole}" PlaceholderText="attendee" />
               <TextBox Text="{Binding Events.ParticipantConfidenceText}" PlaceholderText="Participant confidence (optional)" />
               <TextBox Text="{Binding Events.ParticipantNotes}"
                        AcceptsReturn="True"
@@ -858,9 +862,19 @@
                        TextWrapping="Wrap"
                        VerticalContentAlignment="Top"
                        PlaceholderText="Participant notes" />
+              <TextBlock Classes="muted"
+                         Text="{Binding Events.ParticipantValidationMessage}"
+                         IsVisible="{Binding Events.ShowParticipantValidationMessage}"
+                         TextWrapping="Wrap" />
               <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="Save Participant" Command="{Binding Events.AddParticipantCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Remove Participant" Command="{Binding Events.RemoveParticipantCommand}" />
+                <Button Content="{Binding Events.ParticipantPrimaryActionLabel}"
+                        Command="{Binding Events.AddParticipantCommand}"
+                        IsEnabled="{Binding Events.CanSaveParticipant}" />
+                <Button Grid.Column="1"
+                        Classes="danger"
+                        Content="Remove Participant"
+                        Command="{Binding Events.RemoveParticipantCommand}"
+                        IsEnabled="{Binding Events.CanRemoveParticipant}" />
               </Grid>
               <ItemsControl ItemsSource="{Binding Events.Participants}">
                 <ItemsControl.ItemTemplate>
@@ -988,15 +1002,22 @@
                        TextWrapping="Wrap"
                        VerticalContentAlignment="Top" />
               <Border Background="#FFF8E8" BorderBrush="#F0D58A" BorderThickness="1" CornerRadius="12" Padding="12">
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="muted"
+                             Text="{Binding Hypotheses.HypothesisValidationMessage}"
+                             IsVisible="{Binding Hypotheses.ShowHypothesisValidationMessage}"
+                             TextWrapping="Wrap" />
+                  <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                   <Button Content="{Binding Hypotheses.PrimaryActionLabel}"
-                          Command="{Binding Hypotheses.SaveHypothesisCommand}" />
+                          Command="{Binding Hypotheses.SaveHypothesisCommand}"
+                          IsEnabled="{Binding Hypotheses.CanSaveHypothesis}" />
                   <Button Grid.Column="1"
                           Classes="danger"
                           Content="Delete Hypothesis"
                           Command="{Binding Hypotheses.DeleteHypothesisCommand}"
                           IsEnabled="{Binding Hypotheses.IsEditingExistingItem}" />
-                </Grid>
+                  </Grid>
+                </StackPanel>
               </Border>
               <Border Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="10" Padding="12">
                 <StackPanel Spacing="6">

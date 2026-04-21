@@ -62,7 +62,13 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
     public EventSummaryViewModel? SelectedEvent
     {
         get => _selectedEvent;
-        set => SetEditorSelection(ref _selectedEvent, value, _selectionChanged, PopulateEditor, ClearEditor, nameof(SelectedEvent));
+        set
+        {
+            if (SetEditorSelection(ref _selectedEvent, value, _selectionChanged, PopulateEditor, ClearEditor, nameof(SelectedEvent)))
+            {
+                RaiseParticipantStateChanged();
+            }
+        }
     }
 
     public string EventTitle
@@ -97,6 +103,7 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
             if (SetProperty(ref _selectedParticipant, value))
             {
                 PopulateParticipantEditor(value);
+                RaiseParticipantStateChanged();
             }
         }
     }
@@ -104,13 +111,25 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
     public EntityOptionViewModel? SelectedParticipantEntity
     {
         get => _selectedParticipantEntity;
-        set => SetProperty(ref _selectedParticipantEntity, value);
+        set
+        {
+            if (SetProperty(ref _selectedParticipantEntity, value))
+            {
+                RaiseParticipantStateChanged();
+            }
+        }
     }
 
     public string ParticipantRole
     {
         get => _participantRole;
-        set => SetProperty(ref _participantRole, value);
+        set
+        {
+            if (SetProperty(ref _participantRole, value))
+            {
+                RaiseParticipantStateChanged();
+            }
+        }
     }
 
     public string ParticipantConfidenceText
@@ -126,6 +145,28 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
     }
 
     public bool IsEmpty => Events.Count == 0;
+
+    public bool IsEditingParticipant => SelectedParticipant is not null;
+
+    public string ParticipantPrimaryActionLabel => IsEditingParticipant ? "Save Participant" : "Add Participant";
+
+    public bool CanSaveParticipant =>
+        SelectedEvent is not null &&
+        SelectedParticipantEntity is not null &&
+        !string.IsNullOrWhiteSpace(ParticipantRole);
+
+    public bool ShowParticipantValidationMessage => !CanSaveParticipant;
+
+    public string ParticipantValidationMessage =>
+        SelectedEvent is null
+            ? "Select an event first."
+            : SelectedParticipantEntity is null
+                ? "Select a participant."
+                : string.IsNullOrWhiteSpace(ParticipantRole)
+                    ? "Participant role is required."
+                    : "Participant is ready to save.";
+
+    public bool CanRemoveParticipant => SelectedParticipant is not null;
 
     public void BeginNewEvent()
     {
@@ -144,6 +185,7 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         }
 
         OnPropertyChanged(nameof(IsEmpty));
+        RaiseParticipantStateChanged();
     }
 
     public void UpdateLinkedEvidence(IReadOnlyList<LinkedEvidenceSummaryViewModel> linkedEvidence) =>
@@ -159,6 +201,8 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         {
             ClearParticipantEditor();
         }
+
+        RaiseParticipantStateChanged();
     }
 
     private void PopulateEditor(EventSummaryViewModel? summary)
@@ -203,6 +247,17 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         ParticipantRole = string.Empty;
         ParticipantConfidenceText = string.Empty;
         ParticipantNotes = string.Empty;
+        RaiseParticipantStateChanged();
+    }
+
+    private void RaiseParticipantStateChanged()
+    {
+        OnPropertyChanged(nameof(IsEditingParticipant));
+        OnPropertyChanged(nameof(ParticipantPrimaryActionLabel));
+        OnPropertyChanged(nameof(CanSaveParticipant));
+        OnPropertyChanged(nameof(ShowParticipantValidationMessage));
+        OnPropertyChanged(nameof(ParticipantValidationMessage));
+        OnPropertyChanged(nameof(CanRemoveParticipant));
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)
