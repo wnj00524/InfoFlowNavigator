@@ -3,7 +3,7 @@ using System.Windows.Input;
 
 namespace InfoFlowNavigator.UI.ViewModels;
 
-public sealed class EventsViewModel : ViewModelBase
+public sealed class EventsViewModel : EditorWorkflowViewModel
 {
     private readonly Action<EventSummaryViewModel?> _selectionChanged;
     private EventSummaryViewModel? _selectedEvent;
@@ -33,6 +33,12 @@ public sealed class EventsViewModel : ViewModelBase
         _selectionChanged = selectionChanged;
     }
 
+    protected override string ItemTypeDisplayName => "Event";
+
+    protected override string CreateHintText => "Record observed activity, meetings, milestones, or other dated developments.";
+
+    protected override string EditHintText => "Update the selected event and review its supporting evidence.";
+
     public ObservableCollection<EventSummaryViewModel> Events { get; } = [];
 
     public ObservableCollection<LinkedEvidenceSummaryViewModel> LinkedEvidence { get; } = [];
@@ -54,19 +60,7 @@ public sealed class EventsViewModel : ViewModelBase
     public EventSummaryViewModel? SelectedEvent
     {
         get => _selectedEvent;
-        set
-        {
-            if (SetProperty(ref _selectedEvent, value))
-            {
-                PopulateEditor(value);
-                _selectionChanged(value);
-                OnPropertyChanged(nameof(HasSelection));
-                OnPropertyChanged(nameof(NoSelection));
-                OnPropertyChanged(nameof(EditorTitle));
-                OnPropertyChanged(nameof(EditorHint));
-                OnPropertyChanged(nameof(PrimaryActionLabel));
-            }
-        }
+        set => SetEditorSelection(ref _selectedEvent, value, _selectionChanged, PopulateEditor, ClearEditor, nameof(SelectedEvent));
     }
 
     public string EventTitle
@@ -129,22 +123,11 @@ public sealed class EventsViewModel : ViewModelBase
         set => SetProperty(ref _participantNotes, value);
     }
 
-    public bool HasSelection => SelectedEvent is not null;
-
-    public bool NoSelection => !HasSelection;
-
     public bool IsEmpty => Events.Count == 0;
-
-    public string EditorTitle => SelectedEvent is null ? "Create Event" : "Edit Event";
-
-    public string EditorHint => SelectedEvent is null
-        ? "Record observed activity, meetings, milestones, or other dated developments."
-        : "Update the selected event and review its supporting evidence.";
-
-    public string PrimaryActionLabel => SelectedEvent is null ? "Add Event" : "Update Event";
 
     public void BeginNewEvent()
     {
+        EnterAddMode();
         SelectedEvent = null;
         ClearEditor();
     }

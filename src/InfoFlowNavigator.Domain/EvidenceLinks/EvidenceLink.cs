@@ -40,15 +40,21 @@ public sealed record EvidenceLink(
     }
 
     public EvidenceLink Update(
+        Guid evidenceId,
+        EvidenceLinkTargetKind targetKind,
+        Guid targetId,
         EvidenceRelationToTarget relationToTarget,
         EvidenceStrength strength = EvidenceStrength.Moderate,
         string? notes = null,
         double? confidence = null)
     {
-        ValidateReferences(EvidenceId, TargetId);
+        ValidateReferences(evidenceId, targetId);
 
         return this with
         {
+            EvidenceId = evidenceId,
+            TargetKind = targetKind,
+            TargetId = targetId,
             RelationToTarget = relationToTarget,
             Strength = strength,
             Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),

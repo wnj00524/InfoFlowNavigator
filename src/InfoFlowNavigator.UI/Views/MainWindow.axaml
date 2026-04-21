@@ -188,7 +188,7 @@
                    BorderBrush="#2F5977"
                    PlaceholderText="Workspace name" />
           <TextBlock Foreground="#D9E2EC"
-                     Text="{Binding WorkspacePath, StringFormat='Workspace file: {0}'}"
+                     Text="{Binding WorkspacePathDisplay, StringFormat='Workspace file: {0}'}"
                      TextWrapping="Wrap" />
           <StackPanel Orientation="Horizontal" Spacing="8">
             <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
@@ -220,11 +220,11 @@
 
         <StackPanel Grid.Column="1" Spacing="8">
           <TextBlock Foreground="#D9E2EC" FontWeight="SemiBold" Text="Workspace Context" />
-          <TextBox Text="{Binding WorkspacePath}"
-                   Background="#173F5F"
-                   Foreground="White"
-                   BorderBrush="#2F5977"
-                   PlaceholderText="workspace.ifn.json" />
+          <Border Background="#173F5F" BorderBrush="#2F5977" BorderThickness="1" CornerRadius="10" Padding="12,10">
+            <TextBlock Foreground="White"
+                       Text="{Binding WorkspacePathDisplay}"
+                       TextWrapping="Wrap" />
+          </Border>
           <TextBlock Foreground="#9FB3C8" Text="{Binding WorkspaceUpdatedAt, StringFormat='Updated: {0}'}" />
           <TextBlock Foreground="#9FB3C8" Text="{Binding WorkspaceId, StringFormat='Id: {0}'}" TextWrapping="Wrap" />
         </StackPanel>
@@ -418,7 +418,7 @@
                       </ComboBox.ItemTemplate>
                     </ComboBox>
                     <TextBox Grid.Column="2" Text="{Binding Relationships.RelationshipType}" PlaceholderText="Relationship type" />
-                    <Button Grid.Column="3" Content="Add Relationship" Command="{Binding Relationships.AddRelationshipCommand}" />
+                    <Button Grid.Column="3" Content="{Binding Relationships.PrimaryActionLabel}" Command="{Binding Relationships.SaveRelationshipCommand}" />
                   </Grid>
                 </Border>
 
@@ -591,7 +591,7 @@
                                PlaceholderText="Why does this evidence matter here?" />
                       <TextBox Text="{Binding Evidence.LinkConfidenceText}" PlaceholderText="Link confidence (optional)" />
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <Button Content="Add Assessment" Command="{Binding Evidence.AddLinkCommand}" />
+                        <Button Content="{Binding Evidence.PrimaryLinkActionLabel}" Command="{Binding Evidence.SaveLinkCommand}" />
                         <Button Grid.Column="1" Classes="danger" Content="Delete Assessment" Command="{Binding Evidence.DeleteLinkCommand}" />
                       </Grid>
                       <TextBlock Classes="muted"
@@ -715,6 +715,32 @@
             <StackPanel Spacing="14" IsVisible="{Binding IsRelationshipsMode}">
               <TextBlock Classes="section-title" Text="{Binding Relationships.InspectorTitle}" />
               <TextBlock Classes="muted" Text="{Binding Relationships.InspectorHint}" TextWrapping="Wrap" />
+              <TextBlock Classes="label" Text="Source Entity" />
+              <ComboBox ItemsSource="{Binding Relationships.EntityOptions}" SelectedItem="{Binding Relationships.SelectedSource}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EntityOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="label" Text="Target Entity" />
+              <ComboBox ItemsSource="{Binding Relationships.EntityOptions}" SelectedItem="{Binding Relationships.SelectedTarget}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EntityOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="label" Text="Relationship Type" />
+              <TextBox Text="{Binding Relationships.RelationshipType}" PlaceholderText="associated_with" />
+              <TextBlock Classes="label" Text="Notes" />
+              <TextBox Text="{Binding Relationships.RelationshipNotes}"
+                       AcceptsReturn="True"
+                       Height="84"
+                       TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+              <TextBlock Classes="label" Text="Confidence" />
+              <TextBox Text="{Binding Relationships.RelationshipConfidenceText}" PlaceholderText="0.0 to 1.0" />
               <TextBlock Classes="label" Text="Linked Evidence" />
               <TextBlock Classes="muted"
                          IsVisible="{Binding Relationships.NoSelection}"
@@ -732,7 +758,10 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Button Classes="danger" Content="Delete Relationship" Command="{Binding Relationships.DeleteRelationshipCommand}" />
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Content="{Binding Relationships.PrimaryActionLabel}" Command="{Binding Relationships.SaveRelationshipCommand}" />
+                <Button Grid.Column="1" Classes="danger" Content="Delete Relationship" Command="{Binding Relationships.DeleteRelationshipCommand}" />
+              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="14" IsVisible="{Binding IsEventsMode}">
@@ -801,8 +830,17 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="{Binding Events.PrimaryActionLabel}" Command="{Binding Events.SaveEventCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete Event" Command="{Binding Events.DeleteEventCommand}" />
+                <Button Content="Add Event"
+                        Command="{Binding Events.SaveEventCommand}"
+                        IsVisible="{Binding Events.NoSelection}" />
+                <Button Content="Save Event"
+                        Command="{Binding Events.SaveEventCommand}"
+                        IsVisible="{Binding Events.IsEditingExistingItem}" />
+                <Button Grid.Column="1"
+                        Classes="danger"
+                        Content="Delete Event"
+                        Command="{Binding Events.DeleteEventCommand}"
+                        IsEnabled="{Binding Events.IsEditingExistingItem}" />
               </Grid>
             </StackPanel>
 
@@ -877,14 +915,24 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="{Binding Claims.PrimaryActionLabel}" Command="{Binding Claims.SaveClaimCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete Claim" Command="{Binding Claims.DeleteClaimCommand}" />
+                <Button Content="Add Claim"
+                        Command="{Binding Claims.SaveClaimCommand}"
+                        IsVisible="{Binding Claims.NoSelection}" />
+                <Button Content="Save Claim"
+                        Command="{Binding Claims.SaveClaimCommand}"
+                        IsVisible="{Binding Claims.IsEditingExistingItem}" />
+                <Button Grid.Column="1"
+                        Classes="danger"
+                        Content="Delete Claim"
+                        Command="{Binding Claims.DeleteClaimCommand}"
+                        IsEnabled="{Binding Claims.IsEditingExistingItem}" />
               </Grid>
             </StackPanel>
 
             <StackPanel Spacing="14" IsVisible="{Binding IsHypothesesMode}">
               <TextBlock Classes="section-title" Text="{Binding Hypotheses.EditorTitle}" />
               <TextBlock Classes="muted" Text="{Binding Hypotheses.EditorHint}" TextWrapping="Wrap" />
+              <Button Classes="secondary" Content="New Hypothesis" Command="{Binding Hypotheses.BeginNewHypothesisCommand}" />
               <TextBlock Classes="label" Text="Title" />
               <TextBox Text="{Binding Hypotheses.Title}" PlaceholderText="Working hypothesis title" />
               <TextBlock Classes="label" Text="Statement" />
@@ -942,14 +990,24 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="{Binding Hypotheses.PrimaryActionLabel}" Command="{Binding Hypotheses.SaveHypothesisCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete Hypothesis" Command="{Binding Hypotheses.DeleteHypothesisCommand}" />
+                <Button Content="Add Hypothesis"
+                        Command="{Binding Hypotheses.SaveHypothesisCommand}"
+                        IsVisible="{Binding Hypotheses.NoSelection}" />
+                <Button Content="Save Hypothesis"
+                        Command="{Binding Hypotheses.SaveHypothesisCommand}"
+                        IsVisible="{Binding Hypotheses.IsEditingExistingItem}" />
+                <Button Grid.Column="1"
+                        Classes="danger"
+                        Content="Delete Hypothesis"
+                        Command="{Binding Hypotheses.DeleteHypothesisCommand}"
+                        IsEnabled="{Binding Hypotheses.IsEditingExistingItem}" />
               </Grid>
             </StackPanel>
 
             <StackPanel Spacing="14" IsVisible="{Binding IsEvidenceMode}">
               <TextBlock Classes="section-title" Text="{Binding Evidence.EditorTitle}" />
               <TextBlock Classes="muted" Text="{Binding Evidence.EditorHint}" TextWrapping="Wrap" />
+              <Button Classes="secondary" Content="New Evidence" Command="{Binding Evidence.BeginNewEvidenceCommand}" />
               <TextBlock Classes="label" Text="Title" />
               <TextBox Text="{Binding Evidence.EvidenceTitle}" PlaceholderText="Evidence title" />
               <TextBlock Classes="label" Text="Citation" />
@@ -963,8 +1021,17 @@
               <TextBlock Classes="label" Text="Confidence" />
               <TextBox Text="{Binding Evidence.EvidenceConfidenceText}" PlaceholderText="0.0 to 1.0" />
               <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="{Binding Evidence.PrimaryActionLabel}" Command="{Binding Evidence.SaveEvidenceCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete Evidence" Command="{Binding Evidence.DeleteEvidenceCommand}" />
+                <Button Content="Add Evidence"
+                        Command="{Binding Evidence.SaveEvidenceCommand}"
+                        IsVisible="{Binding Evidence.NoSelection}" />
+                <Button Content="Save Evidence"
+                        Command="{Binding Evidence.SaveEvidenceCommand}"
+                        IsVisible="{Binding Evidence.IsEditingExistingItem}" />
+                <Button Grid.Column="1"
+                        Classes="danger"
+                        Content="Delete Evidence"
+                        Command="{Binding Evidence.DeleteEvidenceCommand}"
+                        IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
               </Grid>
             </StackPanel>
 

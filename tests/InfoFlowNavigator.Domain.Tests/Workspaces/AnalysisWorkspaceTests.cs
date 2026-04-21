@@ -123,6 +123,99 @@ public sealed class AnalysisWorkspaceTests
     }
 
     [Fact]
+    public void UpdateRelationship_WithValidEntities_Succeeds()
+    {
+        var source = Entity.Create("Alice", "Person");
+        var target = Entity.Create("Contoso", "Organization");
+        var replacementTarget = Entity.Create("Fabrikam", "Organization");
+        var relationship = Relationship.Create(source.Id, target.Id, "works_for", "Initial", 0.4);
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddEntity(source)
+            .AddEntity(target)
+            .AddEntity(replacementTarget)
+            .AddRelationship(relationship);
+
+        var updated = workspace.UpdateRelationship(relationship.Update(source.Id, replacementTarget.Id, "consults_for", "Updated", 0.8));
+
+        Assert.Equal(replacementTarget.Id, updated.Relationships[0].TargetEntityId);
+        Assert.Equal("consults_for", updated.Relationships[0].RelationshipType);
+        Assert.Equal("Updated", updated.Relationships[0].Notes);
+        Assert.Equal(0.8, updated.Relationships[0].Confidence);
+    }
+
+    [Fact]
+    public void UpdateRelationship_WithMissingEntity_Throws()
+    {
+        var source = Entity.Create("Alice", "Person");
+        var target = Entity.Create("Contoso", "Organization");
+        var relationship = Relationship.Create(source.Id, target.Id, "works_for");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddEntity(source)
+            .AddEntity(target)
+            .AddRelationship(relationship);
+
+        var act = () => workspace.UpdateRelationship(relationship.Update(Guid.NewGuid(), target.Id, "works_for"));
+
+        var ex = Assert.Throws<InvalidOperationException>(act);
+        Assert.Contains("source entity must exist", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void UpdateEvidenceAssessment_WithValidTarget_Succeeds()
+    {
+        var entity = Entity.Create("Alice", "Person");
+        var eventEntity = Entity.Create("Meeting Host", "Organization");
+        var @event = Event.Create("Meeting");
+        var evidence = WorkspaceEvidence.Create("Interview");
+        var evidenceLink = EvidenceLink.Create(evidence.Id, EvidenceLinkTargetKind.Entity, entity.Id, EvidenceRelationToTarget.Supports, EvidenceStrength.Weak, "Initial");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddEntity(entity)
+            .AddEntity(eventEntity)
+            .AddEvent(@event)
+            .AddEvidence(evidence)
+            .AddEvidenceLink(evidenceLink);
+
+        var updated = workspace.UpdateEvidenceLink(
+            evidenceLink.Update(
+                evidence.Id,
+                EvidenceLinkTargetKind.Event,
+                @event.Id,
+                EvidenceRelationToTarget.Contradicts,
+                EvidenceStrength.Strong,
+                "Updated",
+                0.9));
+
+        Assert.Equal(EvidenceLinkTargetKind.Event, updated.EvidenceLinks[0].TargetKind);
+        Assert.Equal(@event.Id, updated.EvidenceLinks[0].TargetId);
+        Assert.Equal(EvidenceRelationToTarget.Contradicts, updated.EvidenceLinks[0].RelationToTarget);
+        Assert.Equal(EvidenceStrength.Strong, updated.EvidenceLinks[0].Strength);
+    }
+
+    [Fact]
+    public void UpdateEvidenceAssessment_WithMissingTarget_Throws()
+    {
+        var entity = Entity.Create("Alice", "Person");
+        var evidence = WorkspaceEvidence.Create("Interview");
+        var evidenceLink = EvidenceLink.Create(evidence.Id, EvidenceLinkTargetKind.Entity, entity.Id, EvidenceRelationToTarget.Supports);
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddEntity(entity)
+            .AddEvidence(evidence)
+            .AddEvidenceLink(evidenceLink);
+
+        var act = () => workspace.UpdateEvidenceLink(
+            evidenceLink.Update(
+                evidence.Id,
+                EvidenceLinkTargetKind.Event,
+                Guid.NewGuid(),
+                EvidenceRelationToTarget.Supports,
+                EvidenceStrength.Moderate));
+
+        var ex = Assert.Throws<InvalidOperationException>(act);
+        Assert.Contains("target", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("does not exist", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void AddClaimAndParticipant_ValidateReferencesAndDuplicates()
     {
         var entity = Entity.Create("Alice", "Person");

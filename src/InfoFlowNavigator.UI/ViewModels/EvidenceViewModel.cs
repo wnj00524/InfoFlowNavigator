@@ -1,13 +1,15 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Input;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 
 namespace InfoFlowNavigator.UI.ViewModels;
 
-public sealed class EvidenceViewModel : ViewModelBase
+public sealed class EvidenceViewModel : EditorWorkflowViewModel
 {
     private readonly Action<EvidenceSummaryViewModel?> _selectionChanged;
     private readonly Action<EvidenceLinkTargetKind> _targetKindChanged;
+    private bool _isRefreshingLinkEditor;
     private EvidenceSummaryViewModel? _selectedEvidence;
     private string _evidenceTitle = string.Empty;
     private string _evidenceCitation = string.Empty;
@@ -22,16 +24,18 @@ public sealed class EvidenceViewModel : ViewModelBase
     private string _linkConfidenceText = string.Empty;
 
     public EvidenceViewModel(
+        ICommand beginNewEvidenceCommand,
         ICommand saveEvidenceCommand,
         ICommand deleteEvidenceCommand,
-        ICommand addLinkCommand,
+        ICommand saveLinkCommand,
         ICommand deleteLinkCommand,
         Action<EvidenceSummaryViewModel?> selectionChanged,
         Action<EvidenceLinkTargetKind> targetKindChanged)
     {
+        BeginNewEvidenceCommand = beginNewEvidenceCommand;
         SaveEvidenceCommand = saveEvidenceCommand;
         DeleteEvidenceCommand = deleteEvidenceCommand;
-        AddLinkCommand = addLinkCommand;
+        SaveLinkCommand = saveLinkCommand;
         DeleteLinkCommand = deleteLinkCommand;
         _selectionChanged = selectionChanged;
         _targetKindChanged = targetKindChanged;
@@ -62,6 +66,12 @@ public sealed class EvidenceViewModel : ViewModelBase
         SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate);
     }
 
+    protected override string ItemTypeDisplayName => "Evidence";
+
+    protected override string CreateHintText => "Capture source material first, then attach it where it supports, contradicts, or contextualizes the analysis.";
+
+    protected override string EditHintText => "Update the selected evidence and manage its structured assessments.";
+
     public ObservableCollection<EvidenceSummaryViewModel> EvidenceItems { get; } = [];
 
     public ObservableCollection<EvidenceLinkSummaryViewModel> LinkedTargets { get; } = [];
@@ -74,11 +84,13 @@ public sealed class EvidenceViewModel : ViewModelBase
 
     public ObservableCollection<EvidenceStrengthOptionViewModel> Strengths { get; } = [];
 
+    public ICommand BeginNewEvidenceCommand { get; }
+
     public ICommand SaveEvidenceCommand { get; }
 
     public ICommand DeleteEvidenceCommand { get; }
 
-    public ICommand AddLinkCommand { get; }
+    public ICommand SaveLinkCommand { get; }
 
     public ICommand DeleteLinkCommand { get; }
 
@@ -87,15 +99,13 @@ public sealed class EvidenceViewModel : ViewModelBase
         get => _selectedEvidence;
         set
         {
-            if (SetProperty(ref _selectedEvidence, value))
+            if (SetEditorSelection(ref _selectedEvidence, value, _selectionChanged, PopulateEvidenceEditor, ClearEvidenceEditor, nameof(SelectedEvidence)))
             {
-                PopulateEditor(value);
-                _selectionChanged(value);
-                OnPropertyChanged(nameof(HasSelection));
-                OnPropertyChanged(nameof(NoSelection));
-                OnPropertyChanged(nameof(EditorTitle));
-                OnPropertyChanged(nameof(EditorHint));
-                OnPropertyChanged(nameof(PrimaryActionLabel));
+                if (value is null)
+                {
+                    BeginNewAssessment();
+                }
+
                 OnPropertyChanged(nameof(LinkHint));
             }
         }
@@ -128,7 +138,19 @@ public sealed class EvidenceViewModel : ViewModelBase
     public EvidenceLinkSummaryViewModel? SelectedLink
     {
         get => _selectedLink;
-        set => SetProperty(ref _selectedLink, value);
+        set
+        {
+            if (SetProperty(ref _selectedLink, value))
+            {
+                if (value is not null && SelectedTargetKind?.Kind != value.TargetKind)
+                {
+                    SelectedTargetKind = TargetKinds.FirstOrDefault(item => item.Kind == value.TargetKind) ?? TargetKinds.FirstOrDefault();
+                }
+
+                PopulateLinkEditor(value);
+                OnPropertyChanged(nameof(PrimaryLinkActionLabel));
+            }
+        }
     }
 
     public EvidenceLinkTargetKindOptionViewModel? SelectedTargetKind
@@ -136,7 +158,7 @@ public sealed class EvidenceViewModel : ViewModelBase
         get => _selectedTargetKind;
         set
         {
-            if (SetProperty(ref _selectedTargetKind, value) && value is not null)
+            if (SetProperty(ref _selectedTargetKind, value) && value is not null && !_isRefreshingLinkEditor)
             {
                 _targetKindChanged(value.Kind);
             }
@@ -173,23 +195,13 @@ public sealed class EvidenceViewModel : ViewModelBase
         set => SetProperty(ref _linkConfidenceText, value);
     }
 
-    public bool HasSelection => SelectedEvidence is not null;
-
-    public bool NoSelection => !HasSelection;
-
     public bool IsEmpty => EvidenceItems.Count == 0;
-
-    public string EditorTitle => SelectedEvidence is null ? "Capture Evidence" : "Edit Evidence";
-
-    public string EditorHint => SelectedEvidence is null
-        ? "Capture source material first, then attach it where it supports, contradicts, or contextualizes the analysis."
-        : "Update the selected evidence and manage its structured assessments.";
-
-    public string PrimaryActionLabel => SelectedEvidence is null ? "Add Evidence" : "Update Evidence";
 
     public string LinkHint => SelectedEvidence is null
         ? "Select an evidence item to add assessments."
-        : $"Create a structured assessment for '{SelectedEvidence.Title}'.";
+        : $"Create or update a structured assessment for '{SelectedEvidence.Title}'.";
+
+    public string PrimaryLinkActionLabel => SelectedLink is null ? "Add Assessment" : "Update Assessment";
 
     public void Refresh(
         IReadOnlyList<EvidenceSummaryViewModel> evidenceItems,
@@ -202,54 +214,132 @@ public sealed class EvidenceViewModel : ViewModelBase
         ReplaceCollection(EvidenceItems, evidenceItems);
         ReplaceCollection(TargetKinds, targetKinds);
         ReplaceCollection(Targets, targets);
+        ReplaceCollection(LinkedTargets, linkedTargets);
 
         SelectedEvidence = selectedEvidenceId is null ? null : EvidenceItems.FirstOrDefault(item => item.Id == selectedEvidenceId);
-        SelectedTargetKind ??= TargetKinds.FirstOrDefault();
-        SelectedTarget ??= Targets.FirstOrDefault();
-        SelectedLink = selectedLinkId is null ? null : linkedTargets.FirstOrDefault(item => item.Id == selectedLinkId);
 
-        UpdateLinkedTargets(linkedTargets);
+        _isRefreshingLinkEditor = true;
+        try
+        {
+            SelectedTargetKind ??= TargetKinds.FirstOrDefault();
+            SelectedTarget ??= Targets.FirstOrDefault();
+            SelectedLink = selectedLinkId is null ? null : LinkedTargets.FirstOrDefault(item => item.Id == selectedLinkId);
+        }
+        finally
+        {
+            _isRefreshingLinkEditor = false;
+        }
+
         if (SelectedEvidence is null)
         {
-            ClearEditor();
+            ClearEvidenceEditor();
+            ClearLinkEditor();
+        }
+        else if (SelectedLink is not null)
+        {
+            PopulateLinkEditor(SelectedLink);
         }
 
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(PrimaryLinkActionLabel));
     }
 
-    public void UpdateLinkedTargets(IReadOnlyList<EvidenceLinkSummaryViewModel> linkedTargets) =>
+    public void UpdateLinkedTargets(IReadOnlyList<EvidenceLinkSummaryViewModel> linkedTargets)
+    {
+        var selectedLinkId = SelectedLink?.Id;
         ReplaceCollection(LinkedTargets, linkedTargets);
+        SelectedLink = selectedLinkId is null ? null : LinkedTargets.FirstOrDefault(item => item.Id == selectedLinkId);
+        if (SelectedLink is null)
+        {
+            ClearLinkEditor();
+        }
+    }
 
     public void UpdateTargets(IReadOnlyList<TargetOptionViewModel> targets)
     {
+        var selectedTargetId = SelectedTarget?.Id;
         ReplaceCollection(Targets, targets);
-        SelectedTarget = Targets.FirstOrDefault();
+        SelectedTarget = selectedTargetId is null
+            ? Targets.FirstOrDefault()
+            : Targets.FirstOrDefault(item => item.Id == selectedTargetId) ?? Targets.FirstOrDefault();
     }
 
-    private void PopulateEditor(EvidenceSummaryViewModel? evidence)
+    public void BeginNewAssessment()
+    {
+        SelectedLink = null;
+        ClearLinkEditor();
+    }
+
+    public void BeginNewEvidence()
+    {
+        EnterAddMode();
+        SelectedEvidence = null;
+        ClearEvidenceEditor();
+        BeginNewAssessment();
+    }
+
+    private void PopulateEvidenceEditor(EvidenceSummaryViewModel? evidence)
     {
         if (evidence is null)
         {
-            ClearEditor();
+            ClearEvidenceEditor();
             return;
         }
 
         EvidenceTitle = evidence.Title;
         EvidenceCitation = evidence.Citation ?? string.Empty;
         EvidenceNotes = evidence.Notes ?? string.Empty;
-        EvidenceConfidenceText = evidence.Confidence?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        EvidenceConfidenceText = evidence.Confidence?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
     }
 
-    private void ClearEditor()
+    private void PopulateLinkEditor(EvidenceLinkSummaryViewModel? link)
+    {
+        _isRefreshingLinkEditor = true;
+        try
+        {
+            if (link is null)
+            {
+                ClearLinkEditor();
+                return;
+            }
+
+            SelectedTargetKind = TargetKinds.FirstOrDefault(item => item.Kind == link.TargetKind) ?? TargetKinds.FirstOrDefault();
+            SelectedTarget = Targets.FirstOrDefault(item => item.Id == link.TargetId) ?? Targets.FirstOrDefault();
+            SelectedRelation = Relations.FirstOrDefault(item => item.Relation == link.RelationToTarget) ?? Relations.FirstOrDefault();
+            SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == link.Strength) ?? Strengths.FirstOrDefault();
+            LinkNotes = link.Notes ?? string.Empty;
+            LinkConfidenceText = link.Confidence?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+        finally
+        {
+            _isRefreshingLinkEditor = false;
+        }
+    }
+
+    private void ClearEvidenceEditor()
     {
         EvidenceTitle = string.Empty;
         EvidenceCitation = string.Empty;
         EvidenceNotes = string.Empty;
         EvidenceConfidenceText = string.Empty;
-        LinkNotes = string.Empty;
-        LinkConfidenceText = string.Empty;
-        SelectedRelation = Relations.FirstOrDefault();
-        SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate);
+    }
+
+    private void ClearLinkEditor()
+    {
+        _isRefreshingLinkEditor = true;
+        try
+        {
+            LinkNotes = string.Empty;
+            LinkConfidenceText = string.Empty;
+            SelectedRelation = Relations.FirstOrDefault();
+            SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate);
+            SelectedTargetKind ??= TargetKinds.FirstOrDefault();
+            SelectedTarget = Targets.FirstOrDefault();
+        }
+        finally
+        {
+            _isRefreshingLinkEditor = false;
+        }
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)

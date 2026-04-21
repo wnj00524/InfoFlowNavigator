@@ -5,6 +5,7 @@ using InfoFlowNavigator.Application.Reporting;
 using InfoFlowNavigator.Application.Workspaces;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Workspaces;
+using InfoFlowNavigator.UI.Services;
 using InfoFlowNavigator.UI.ViewModels;
 
 namespace InfoFlowNavigator.UI.Views;
@@ -16,7 +17,8 @@ public partial class MainWindow : Window
             new WorkspaceApplicationService(new DesignTimeWorkspaceRepository()),
             new DesignTimeAnalysisService(),
             new DesignTimeReportGenerator(),
-            new DesignTimeWorkspaceExportService()))
+            new DesignTimeWorkspaceExportService(),
+            new DesignTimeWorkspaceFileDialogService()))
     {
     }
 
@@ -64,5 +66,14 @@ public partial class MainWindow : Window
     {
         public Task ExportAsync(AnalysisWorkspace workspace, string path, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private sealed class DesignTimeWorkspaceFileDialogService : IWorkspaceFileDialogService
+    {
+        public Task<string?> PickOpenWorkspacePathAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>("workspace.ifn.json");
+
+        public Task<string?> PickSaveWorkspacePathAsync(string suggestedFileName, CancellationToken cancellationToken = default) =>
+            Task.FromResult<string?>("workspace.ifn.json");
     }
 }

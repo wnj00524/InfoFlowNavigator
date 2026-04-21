@@ -47,4 +47,36 @@ public sealed record Relationship(
             now,
             now);
     }
+
+    public Relationship Update(
+        Guid sourceEntityId,
+        Guid targetEntityId,
+        string relationshipType,
+        string? notes = null,
+        double? confidence = null,
+        IEnumerable<string>? tags = null,
+        IReadOnlyDictionary<string, string>? metadata = null)
+    {
+        if (sourceEntityId == Guid.Empty)
+        {
+            throw new ArgumentException("Source entity id is required.", nameof(sourceEntityId));
+        }
+
+        if (targetEntityId == Guid.Empty)
+        {
+            throw new ArgumentException("Target entity id is required.", nameof(targetEntityId));
+        }
+
+        return this with
+        {
+            SourceEntityId = sourceEntityId,
+            TargetEntityId = targetEntityId,
+            RelationshipType = DomainValidation.Required(relationshipType, nameof(relationshipType), "Relationship type is required."),
+            Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+            Confidence = DomainValidation.NormalizeConfidence(confidence, nameof(confidence)),
+            Tags = DomainValidation.NormalizeTags(tags),
+            Metadata = DomainValidation.NormalizeMetadata(metadata),
+            UpdatedAtUtc = DateTimeOffset.UtcNow
+        };
+    }
 }

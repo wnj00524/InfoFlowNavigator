@@ -1,9 +1,12 @@
 using InfoFlowNavigator.Application.Abstractions;
+using InfoFlowNavigator.Application.Analysis;
+using InfoFlowNavigator.Application.Reporting;
 using InfoFlowNavigator.Application.Workspaces;
 using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.Domain.Workspaces;
+using InfoFlowNavigator.UI.ViewModels;
 
 namespace InfoFlowNavigator.Application.Tests.Workspaces;
 
@@ -102,12 +105,341 @@ public sealed class WorkspaceApplicationServiceTests
         Assert.Single(eventsForEntity);
     }
 
+    [Fact]
+    public void UpdateRelationship_ThroughApplicationService_UpdatesWorkspace()
+    {
+        var service = new WorkspaceApplicationService(new InMemoryWorkspaceRepository());
+        var workspace = service.CreateWorkspace("Bootstrap Workspace");
+        workspace = service.AddEntity(workspace, "Alice", "Person");
+        workspace = service.AddEntity(workspace, "Contoso", "Organization");
+        workspace = service.AddEntity(workspace, "Fabrikam", "Organization");
+        workspace = service.AddRelationship(workspace, workspace.Entities[0].Id, workspace.Entities[1].Id, "works_for", "Initial", 0.4);
+
+        workspace = service.UpdateRelationship(
+            workspace,
+            workspace.Relationships[0].Id,
+            workspace.Entities[0].Id,
+            workspace.Entities[2].Id,
+            "consults_for",
+            "Updated",
+            0.9);
+
+        Assert.Equal(workspace.Entities[2].Id, workspace.Relationships[0].TargetEntityId);
+        Assert.Equal("consults_for", workspace.Relationships[0].RelationshipType);
+    }
+
+    [Fact]
+    public void UpdateEvidenceAssessment_ThroughApplicationService_UpdatesWorkspace()
+    {
+        var service = new WorkspaceApplicationService(new InMemoryWorkspaceRepository());
+        var workspace = service.CreateWorkspace("Bootstrap Workspace");
+        workspace = service.AddEntity(workspace, "Alice", "Person");
+        workspace = service.AddEvent(workspace, "Meeting");
+        workspace = service.AddEvidence(workspace, "Interview Summary");
+        workspace = service.AddEvidenceAssessment(
+            workspace,
+            workspace.Evidence[0].Id,
+            EvidenceLinkTargetKind.Entity,
+            workspace.Entities[0].Id,
+            EvidenceRelationToTarget.Supports,
+            EvidenceStrength.Moderate,
+            "Initial",
+            0.4);
+
+        workspace = service.UpdateEvidenceAssessment(
+            workspace,
+            workspace.EvidenceLinks[0].Id,
+            workspace.Evidence[0].Id,
+            EvidenceLinkTargetKind.Event,
+            workspace.Events[0].Id,
+            EvidenceRelationToTarget.Contradicts,
+            EvidenceStrength.Strong,
+            "Updated",
+            0.9);
+
+        Assert.Equal(EvidenceLinkTargetKind.Event, workspace.EvidenceLinks[0].TargetKind);
+        Assert.Equal(workspace.Events[0].Id, workspace.EvidenceLinks[0].TargetId);
+        Assert.Equal(EvidenceRelationToTarget.Contradicts, workspace.EvidenceLinks[0].RelationToTarget);
+    }
+
+    [Fact]
+    public async Task OpenWorkspaceCommand_UsesFileDialogSelection()
+    {
+        var repository = new TrackingWorkspaceRepository
+        {
+            WorkspaceToLoad = AnalysisWorkspace.CreateNew("Loaded Workspace")
+        };
+        var fileDialog = new FakeWorkspaceFileDialogService
+        {
+            OpenPath = @"C:\cases\loaded.ifn.json"
+        };
+        var viewModel = CreateShellViewModel(repository, fileDialog);
+
+        viewModel.OpenWorkspaceCommand.Execute(null);
+        await WaitForConditionAsync(() => repository.LoadedPath is not null);
+
+        Assert.Equal(fileDialog.OpenPath, repository.LoadedPath);
+        Assert.Equal(fileDialog.OpenPath, viewModel.WorkspacePath);
+        Assert.Equal("Loaded Workspace", viewModel.WorkspaceName);
+    }
+
+    [Fact]
+    public async Task SaveWorkspaceCommand_WithEmptyPath_UsesSaveDialogPath()
+    {
+        var repository = new TrackingWorkspaceRepository();
+        var fileDialog = new FakeWorkspaceFileDialogService
+        {
+            SavePath = @"C:\cases\saved.ifn.json"
+        };
+        var viewModel = CreateShellViewModel(repository, fileDialog);
+        viewModel.WorkspaceName = "Case Save";
+
+        viewModel.SaveWorkspaceCommand.Execute(null);
+        await WaitForConditionAsync(() => repository.SavedPath is not null);
+
+        Assert.Equal(fileDialog.SavePath, repository.SavedPath);
+        Assert.Equal(fileDialog.SavePath, viewModel.WorkspacePath);
+        Assert.Equal("Case Save", repository.SavedWorkspace?.Name);
+        Assert.Equal(1, fileDialog.SaveCallCount);
+    }
+
+    [Fact]
+    public async Task SaveWorkspaceCommand_WithExistingPath_SavesDirectly()
+    {
+        var repository = new TrackingWorkspaceRepository();
+        var fileDialog = new FakeWorkspaceFileDialogService();
+        var viewModel = CreateShellViewModel(repository, fileDialog);
+        viewModel.WorkspacePath = @"C:\cases\existing.ifn.json";
+        viewModel.WorkspaceName = "Existing Case";
+
+        viewModel.SaveWorkspaceCommand.Execute(null);
+        await WaitForConditionAsync(() => repository.SavedPath is not null);
+
+        Assert.Equal(@"C:\cases\existing.ifn.json", repository.SavedPath);
+        Assert.Equal(0, fileDialog.SaveCallCount);
+    }
+
+    [Fact]
+    public void SaveEvent_WithNoSelection_AddsAndSelectsCreatedEvent()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventNotes = "Observed";
+
+        viewModel.Events.SaveEventCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.Events);
+        Assert.NotNull(viewModel.Events.SelectedEvent);
+        Assert.Equal("Meeting", viewModel.Events.SelectedEvent!.Title);
+        Assert.Equal("Save Event", viewModel.Events.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void SaveClaim_WithNoSelection_AddsAndSelectsCreatedClaim()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Claims.Statement = "Alice attended the meeting.";
+
+        viewModel.Claims.SaveClaimCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.Claims);
+        Assert.NotNull(viewModel.Claims.SelectedClaim);
+        Assert.Equal("Save Claim", viewModel.Claims.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void SaveHypothesis_WithNoSelection_AddsAndSelectsCreatedHypothesis()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Hypotheses.Title = "Attendance";
+        viewModel.Hypotheses.Statement = "Alice attended the meeting.";
+
+        viewModel.Hypotheses.SaveHypothesisCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.Hypotheses);
+        Assert.NotNull(viewModel.Hypotheses.SelectedHypothesis);
+        Assert.Equal("Save Hypothesis", viewModel.Hypotheses.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void SaveEvidence_WithNoSelection_AddsAndSelectsCreatedEvidence()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Evidence.EvidenceTitle = "Interview Summary";
+
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.Evidence);
+        Assert.NotNull(viewModel.Evidence.SelectedEvidence);
+        Assert.Equal("Save Evidence", viewModel.Evidence.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void BeginNewEvent_ThenSave_AddsNewEventInsteadOfUpdatingSelectedEvent()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Events.EventTitle = "Existing Event";
+        viewModel.Events.SaveEventCommand.Execute(null);
+
+        viewModel.Events.BeginNewEventCommand.Execute(null);
+        viewModel.Events.EventTitle = "New Event";
+        viewModel.Events.SaveEventCommand.Execute(null);
+
+        Assert.Equal(2, viewModel.Workspace.Events.Count);
+        Assert.Contains(viewModel.Workspace.Events, item => item.Title == "Existing Event");
+        Assert.Contains(viewModel.Workspace.Events, item => item.Title == "New Event");
+    }
+
+    [Fact]
+    public void BeginNewClaim_ThenSave_AddsNewClaimInsteadOfUpdatingSelectedClaim()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Claims.Statement = "Existing claim";
+        viewModel.Claims.SaveClaimCommand.Execute(null);
+
+        viewModel.Claims.BeginNewClaimCommand.Execute(null);
+        viewModel.Claims.Statement = "New claim";
+        viewModel.Claims.SaveClaimCommand.Execute(null);
+
+        Assert.Equal(2, viewModel.Workspace.Claims.Count);
+        Assert.Contains(viewModel.Workspace.Claims, item => item.Statement == "Existing claim");
+        Assert.Contains(viewModel.Workspace.Claims, item => item.Statement == "New claim");
+    }
+
+    [Fact]
+    public void BeginNewHypothesis_ThenSave_AddsNewHypothesisInsteadOfUpdatingSelectedHypothesis()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Hypotheses.Title = "Existing hypothesis";
+        viewModel.Hypotheses.Statement = "Existing statement";
+        viewModel.Hypotheses.SaveHypothesisCommand.Execute(null);
+
+        viewModel.Hypotheses.BeginNewHypothesisCommand.Execute(null);
+        viewModel.Hypotheses.Title = "New hypothesis";
+        viewModel.Hypotheses.Statement = "New statement";
+        viewModel.Hypotheses.SaveHypothesisCommand.Execute(null);
+
+        Assert.Equal(2, viewModel.Workspace.Hypotheses.Count);
+        Assert.Contains(viewModel.Workspace.Hypotheses, item => item.Title == "Existing hypothesis");
+        Assert.Contains(viewModel.Workspace.Hypotheses, item => item.Title == "New hypothesis");
+    }
+
+    [Fact]
+    public void BeginNewEvidence_ThenSave_AddsNewEvidenceInsteadOfUpdatingSelectedEvidence()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Evidence.EvidenceTitle = "Existing evidence";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        viewModel.Evidence.BeginNewEvidenceCommand.Execute(null);
+        viewModel.Evidence.EvidenceTitle = "New evidence";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        Assert.Equal(2, viewModel.Workspace.Evidence.Count);
+        Assert.Contains(viewModel.Workspace.Evidence, item => item.Title == "Existing evidence");
+        Assert.Contains(viewModel.Workspace.Evidence, item => item.Title == "New evidence");
+    }
+
+    private static WorkspaceShellViewModel CreateShellViewModel(
+        TrackingWorkspaceRepository repository,
+        FakeWorkspaceFileDialogService fileDialogService) =>
+        new(
+            new WorkspaceApplicationService(repository),
+            new StubAnalysisService(),
+            new StubReportGenerator(),
+            new StubWorkspaceExportService(),
+            fileDialogService);
+
+    private static async Task WaitForConditionAsync(Func<bool> condition)
+    {
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(20);
+        }
+
+        throw new TimeoutException("Timed out waiting for async command completion.");
+    }
+
     private sealed class InMemoryWorkspaceRepository : IWorkspaceRepository
     {
         public Task<AnalysisWorkspace> LoadAsync(string path, CancellationToken cancellationToken = default) =>
             Task.FromResult(AnalysisWorkspace.CreateNew(path));
 
         public Task SaveAsync(string path, AnalysisWorkspace workspace, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+    }
+
+    private sealed class TrackingWorkspaceRepository : IWorkspaceRepository
+    {
+        public AnalysisWorkspace WorkspaceToLoad { get; set; } = AnalysisWorkspace.CreateNew("Loaded");
+
+        public string? LoadedPath { get; private set; }
+
+        public string? SavedPath { get; private set; }
+
+        public AnalysisWorkspace? SavedWorkspace { get; private set; }
+
+        public Task<AnalysisWorkspace> LoadAsync(string path, CancellationToken cancellationToken = default)
+        {
+            LoadedPath = path;
+            return Task.FromResult(WorkspaceToLoad);
+        }
+
+        public Task SaveAsync(string path, AnalysisWorkspace workspace, CancellationToken cancellationToken = default)
+        {
+            SavedPath = path;
+            SavedWorkspace = workspace;
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeWorkspaceFileDialogService : IWorkspaceFileDialogService
+    {
+        public string? OpenPath { get; init; }
+
+        public string? SavePath { get; init; }
+
+        public int SaveCallCount { get; private set; }
+
+        public Task<string?> PickOpenWorkspacePathAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(OpenPath);
+
+        public Task<string?> PickSaveWorkspacePathAsync(string suggestedFileName, CancellationToken cancellationToken = default)
+        {
+            SaveCallCount++;
+            return Task.FromResult(SavePath);
+        }
+    }
+
+    private sealed class StubAnalysisService : IAnalysisService
+    {
+        public Task<WorkspaceAnalysisResult> SummarizeAsync(AnalysisWorkspace workspace, CancellationToken cancellationToken = default) =>
+            Task.FromResult(WorkspaceAnalysisResultFactory.Empty(
+                workspace.Entities.Count,
+                workspace.Relationships.Count,
+                workspace.Events.Count,
+                workspace.EventParticipants.Count,
+                workspace.Claims.Count,
+                workspace.Hypotheses.Count,
+                workspace.Evidence.Count,
+                workspace.EvidenceLinks.Count,
+                []));
+    }
+
+    private sealed class StubReportGenerator : IReportGenerator
+    {
+        public Task<ReportArtifact> GenerateAsync(AnalysisWorkspace workspace, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ReportArtifact("briefing.txt", "text/plain", "Briefing"));
+    }
+
+    private sealed class StubWorkspaceExportService : IWorkspaceExportService
+    {
+        public Task ExportAsync(AnalysisWorkspace workspace, string path, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
     }
 }

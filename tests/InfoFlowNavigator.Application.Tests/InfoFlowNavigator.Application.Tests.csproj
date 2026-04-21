@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\InfoFlowNavigator.Application\InfoFlowNavigator.Application.csproj" />
     <ProjectReference Include="..\..\src\InfoFlowNavigator.Domain\InfoFlowNavigator.Domain.csproj" />
+    <ProjectReference Include="..\..\src\InfoFlowNavigator.UI\InfoFlowNavigator.UI.csproj" />
   </ItemGroup>
 
   <ItemGroup>

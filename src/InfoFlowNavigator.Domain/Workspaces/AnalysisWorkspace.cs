@@ -183,6 +183,32 @@ public sealed record AnalysisWorkspace(
         };
     }
 
+    public AnalysisWorkspace UpdateRelationship(Relationship relationship)
+    {
+        ArgumentNullException.ThrowIfNull(relationship);
+
+        if (!Entities.Any(entity => entity.Id == relationship.SourceEntityId))
+        {
+            throw new InvalidOperationException("Relationship source entity must exist in the workspace.");
+        }
+
+        if (!Entities.Any(entity => entity.Id == relationship.TargetEntityId))
+        {
+            throw new InvalidOperationException("Relationship target entity must exist in the workspace.");
+        }
+
+        if (!Relationships.Any(existing => existing.Id == relationship.Id))
+        {
+            throw new InvalidOperationException($"Relationship '{relationship.Id}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Relationships = Relationships.Select(existing => existing.Id == relationship.Id ? relationship : existing).ToArray()
+        };
+    }
+
     public AnalysisWorkspace AddEvent(Event @event)
     {
         ArgumentNullException.ThrowIfNull(@event);
@@ -525,6 +551,15 @@ public sealed record AnalysisWorkspace(
             throw new InvalidOperationException($"Evidence assessment '{evidenceLink.Id}' already exists in the workspace.");
         }
 
+        if (EvidenceLinks.Any(existing =>
+                existing.EvidenceId == evidenceLink.EvidenceId &&
+                existing.TargetKind == evidenceLink.TargetKind &&
+                existing.TargetId == evidenceLink.TargetId &&
+                existing.RelationToTarget == evidenceLink.RelationToTarget))
+        {
+            throw new InvalidOperationException("An evidence assessment with the same evidence, target, and relation already exists.");
+        }
+
         return this with
         {
             UpdatedAtUtc = DateTimeOffset.UtcNow,
@@ -548,6 +583,34 @@ public sealed record AnalysisWorkspace(
         {
             UpdatedAtUtc = DateTimeOffset.UtcNow,
             EvidenceLinks = EvidenceLinks.Where(link => link.Id != evidenceLinkId).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace UpdateEvidenceLink(EvidenceLink evidenceLink)
+    {
+        ArgumentNullException.ThrowIfNull(evidenceLink);
+
+        ValidateEvidenceLinkReferences(evidenceLink);
+
+        if (!EvidenceLinks.Any(existing => existing.Id == evidenceLink.Id))
+        {
+            throw new InvalidOperationException($"Evidence assessment '{evidenceLink.Id}' does not exist in the workspace.");
+        }
+
+        if (EvidenceLinks.Any(existing =>
+                existing.Id != evidenceLink.Id &&
+                existing.EvidenceId == evidenceLink.EvidenceId &&
+                existing.TargetKind == evidenceLink.TargetKind &&
+                existing.TargetId == evidenceLink.TargetId &&
+                existing.RelationToTarget == evidenceLink.RelationToTarget))
+        {
+            throw new InvalidOperationException("An evidence assessment with the same evidence, target, and relation already exists.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            EvidenceLinks = EvidenceLinks.Select(existing => existing.Id == evidenceLink.Id ? evidenceLink : existing).ToArray()
         };
     }
 

@@ -3,7 +3,7 @@ using System.Windows.Input;
 
 namespace InfoFlowNavigator.UI.ViewModels;
 
-public sealed class HypothesesViewModel : ViewModelBase
+public sealed class HypothesesViewModel : EditorWorkflowViewModel
 {
     private readonly Action<HypothesisSummaryViewModel?> _selectionChanged;
     private HypothesisSummaryViewModel? _selectedHypothesis;
@@ -16,10 +16,12 @@ public sealed class HypothesesViewModel : ViewModelBase
     private string _explanation = "Inference summaries will appear here.";
 
     public HypothesesViewModel(
+        ICommand beginNewHypothesisCommand,
         ICommand saveHypothesisCommand,
         ICommand deleteHypothesisCommand,
         Action<HypothesisSummaryViewModel?> selectionChanged)
     {
+        BeginNewHypothesisCommand = beginNewHypothesisCommand;
         SaveHypothesisCommand = saveHypothesisCommand;
         DeleteHypothesisCommand = deleteHypothesisCommand;
         _selectionChanged = selectionChanged;
@@ -38,6 +40,12 @@ public sealed class HypothesesViewModel : ViewModelBase
         SelectedStatus = StatusOptions[0];
     }
 
+    protected override string ItemTypeDisplayName => "Hypothesis";
+
+    protected override string CreateHintText => "Capture a testable analytic statement, then attach supporting and contradicting evidence.";
+
+    protected override string EditHintText => "Review the current posture and update the hypothesis statement as the evidence changes.";
+
     public ObservableCollection<HypothesisSummaryViewModel> Hypotheses { get; } = [];
 
     public ObservableCollection<HypothesisStatusOptionViewModel> StatusOptions { get; } = [];
@@ -46,6 +54,8 @@ public sealed class HypothesesViewModel : ViewModelBase
 
     public ObservableCollection<LinkedEvidenceSummaryViewModel> ContradictingEvidence { get; } = [];
 
+    public ICommand BeginNewHypothesisCommand { get; }
+
     public ICommand SaveHypothesisCommand { get; }
 
     public ICommand DeleteHypothesisCommand { get; }
@@ -53,19 +63,7 @@ public sealed class HypothesesViewModel : ViewModelBase
     public HypothesisSummaryViewModel? SelectedHypothesis
     {
         get => _selectedHypothesis;
-        set
-        {
-            if (SetProperty(ref _selectedHypothesis, value))
-            {
-                PopulateEditor(value);
-                _selectionChanged(value);
-                OnPropertyChanged(nameof(HasSelection));
-                OnPropertyChanged(nameof(NoSelection));
-                OnPropertyChanged(nameof(EditorTitle));
-                OnPropertyChanged(nameof(EditorHint));
-                OnPropertyChanged(nameof(PrimaryActionLabel));
-            }
-        }
+        set => SetEditorSelection(ref _selectedHypothesis, value, _selectionChanged, PopulateEditor, ClearEditor, nameof(SelectedHypothesis));
     }
 
     public HypothesisStatusOptionViewModel? SelectedStatus
@@ -110,19 +108,14 @@ public sealed class HypothesesViewModel : ViewModelBase
         private set => SetProperty(ref _explanation, value);
     }
 
-    public bool HasSelection => SelectedHypothesis is not null;
-
-    public bool NoSelection => !HasSelection;
-
     public bool IsEmpty => Hypotheses.Count == 0;
 
-    public string EditorTitle => SelectedHypothesis is null ? "Create Hypothesis" : "Edit Hypothesis";
-
-    public string EditorHint => SelectedHypothesis is null
-        ? "Capture a testable analytic statement, then attach supporting and contradicting evidence."
-        : "Review the current posture and update the hypothesis statement as the evidence changes.";
-
-    public string PrimaryActionLabel => SelectedHypothesis is null ? "Add Hypothesis" : "Update Hypothesis";
+    public void BeginNewHypothesis()
+    {
+        EnterAddMode();
+        SelectedHypothesis = null;
+        ClearEditor();
+    }
 
     public void Refresh(
         IReadOnlyList<HypothesisSummaryViewModel> hypotheses,

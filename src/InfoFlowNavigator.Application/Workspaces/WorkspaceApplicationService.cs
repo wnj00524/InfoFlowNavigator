@@ -70,6 +70,23 @@ public sealed class WorkspaceApplicationService
         return workspace.UpdateEntity(existing.Update(name, entityType, notes, confidence, existing.Tags, existing.Metadata));
     }
 
+    public AnalysisWorkspace UpdateRelationship(
+        AnalysisWorkspace workspace,
+        Guid relationshipId,
+        Guid sourceEntityId,
+        Guid targetEntityId,
+        string relationshipType,
+        string? notes = null,
+        double? confidence = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var existing = workspace.Relationships.FirstOrDefault(relationship => relationship.Id == relationshipId)
+            ?? throw new InvalidOperationException($"Relationship '{relationshipId}' does not exist in the workspace.");
+
+        return workspace.UpdateRelationship(existing.Update(sourceEntityId, targetEntityId, relationshipType, notes, confidence, existing.Tags, existing.Metadata));
+    }
+
     public AnalysisWorkspace RemoveEntity(AnalysisWorkspace workspace, Guid entityId)
     {
         ArgumentNullException.ThrowIfNull(workspace);
@@ -341,6 +358,25 @@ public sealed class WorkspaceApplicationService
         string? notes = null,
         double? confidence = null) =>
         AddEvidenceAssessment(workspace, evidenceId, EvidenceLinkTargetKind.Hypothesis, hypothesisId, relationToTarget, strength, notes, confidence);
+
+    public AnalysisWorkspace UpdateEvidenceAssessment(
+        AnalysisWorkspace workspace,
+        Guid evidenceAssessmentId,
+        Guid evidenceId,
+        EvidenceLinkTargetKind targetKind,
+        Guid targetId,
+        EvidenceRelationToTarget relationToTarget,
+        EvidenceStrength strength = EvidenceStrength.Moderate,
+        string? notes = null,
+        double? confidence = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var existing = workspace.EvidenceLinks.FirstOrDefault(link => link.Id == evidenceAssessmentId)
+            ?? throw new InvalidOperationException($"Evidence assessment '{evidenceAssessmentId}' does not exist in the workspace.");
+
+        return workspace.UpdateEvidenceLink(existing.Update(evidenceId, targetKind, targetId, relationToTarget, strength, notes, confidence));
+    }
 
     public AnalysisWorkspace RemoveEvidenceAssessment(AnalysisWorkspace workspace, Guid evidenceAssessmentId)
     {

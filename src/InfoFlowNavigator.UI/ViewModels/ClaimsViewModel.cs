@@ -4,7 +4,7 @@ using InfoFlowNavigator.Domain.Claims;
 
 namespace InfoFlowNavigator.UI.ViewModels;
 
-public sealed class ClaimsViewModel : ViewModelBase
+public sealed class ClaimsViewModel : EditorWorkflowViewModel
 {
     private readonly Action<ClaimSummaryViewModel?> _selectionChanged;
     private ClaimSummaryViewModel? _selectedClaim;
@@ -28,6 +28,12 @@ public sealed class ClaimsViewModel : ViewModelBase
         DeleteClaimCommand = deleteClaimCommand;
         _selectionChanged = selectionChanged;
     }
+
+    protected override string ItemTypeDisplayName => "Claim";
+
+    protected override string CreateHintText => "Capture a specific analytic assertion that sits between evidence and higher-level hypotheses.";
+
+    protected override string EditHintText => "Update the selected claim and review the evidence currently attached to it.";
 
     public ObservableCollection<ClaimSummaryViewModel> Claims { get; } = [];
 
@@ -72,19 +78,7 @@ public sealed class ClaimsViewModel : ViewModelBase
     public ClaimSummaryViewModel? SelectedClaim
     {
         get => _selectedClaim;
-        set
-        {
-            if (SetProperty(ref _selectedClaim, value))
-            {
-                PopulateEditor(value);
-                _selectionChanged(value);
-                OnPropertyChanged(nameof(HasSelection));
-                OnPropertyChanged(nameof(NoSelection));
-                OnPropertyChanged(nameof(EditorTitle));
-                OnPropertyChanged(nameof(EditorHint));
-                OnPropertyChanged(nameof(PrimaryActionLabel));
-            }
-        }
+        set => SetEditorSelection(ref _selectedClaim, value, _selectionChanged, PopulateEditor, ClearEditor, nameof(SelectedClaim));
     }
 
     public ClaimTypeOptionViewModel? SelectedClaimType
@@ -141,22 +135,11 @@ public sealed class ClaimsViewModel : ViewModelBase
         set => SetProperty(ref _confidenceText, value);
     }
 
-    public bool HasSelection => SelectedClaim is not null;
-
-    public bool NoSelection => !HasSelection;
-
     public bool IsEmpty => Claims.Count == 0;
-
-    public string EditorTitle => SelectedClaim is null ? "Create Claim" : "Edit Claim";
-
-    public string EditorHint => SelectedClaim is null
-        ? "Capture a specific analytic assertion that sits between evidence and higher-level hypotheses."
-        : "Update the claim and review the evidence currently attached to it.";
-
-    public string PrimaryActionLabel => SelectedClaim is null ? "Add Claim" : "Update Claim";
 
     public void BeginNewClaim()
     {
+        EnterAddMode();
         SelectedClaim = null;
         ClearEditor();
     }
