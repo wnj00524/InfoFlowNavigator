@@ -401,7 +401,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private void SaveEvent()
     {
         var confidence = ParseOptionalConfidence(Events.EventConfidenceText, "Event confidence");
-        var occurredAtUtc = ParseOptionalDateTimeOffset(Events.EventOccurredAtText, "Event occurred time");
+        var occurredAtUtc = EventOccurredAtFormatting.ParseRequired(Events.EventOccurredAtText);
 
         if (!Events.IsEditingExistingItem)
         {
@@ -1035,21 +1035,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
 
         return value;
-    }
-
-    private static DateTimeOffset? ParseOptionalDateTimeOffset(string text, string fieldName)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return null;
-        }
-
-        if (!DateTimeOffset.TryParse(text.Trim(), CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AllowWhiteSpaces, out var value))
-        {
-            throw new InvalidOperationException($"{fieldName} must be a valid date/time.");
-        }
-
-        return value.ToUniversalTime();
     }
 
     private async Task<string?> EnsureWorkspacePathForSaveAsync()

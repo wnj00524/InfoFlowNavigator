@@ -225,6 +225,7 @@ public sealed class WorkspaceApplicationServiceTests
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
         viewModel.Events.EventTitle = "Meeting";
         viewModel.Events.EventNotes = "Observed";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
 
         viewModel.Events.SaveEventCommand.Execute(null);
 
@@ -279,10 +280,12 @@ public sealed class WorkspaceApplicationServiceTests
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
         viewModel.Events.EventTitle = "Existing Event";
+        viewModel.Events.EventOccurredAtText = "21/04/26";
         viewModel.Events.SaveEventCommand.Execute(null);
 
         viewModel.Events.BeginNewEventCommand.Execute(null);
         viewModel.Events.EventTitle = "New Event";
+        viewModel.Events.EventOccurredAtText = "22/04/26 09:15";
         viewModel.Events.SaveEventCommand.Execute(null);
 
         Assert.Equal(2, viewModel.Workspace.Events.Count);
@@ -338,6 +341,19 @@ public sealed class WorkspaceApplicationServiceTests
         Assert.Equal(2, viewModel.Workspace.Evidence.Count);
         Assert.Contains(viewModel.Workspace.Evidence, item => item.Title == "Existing evidence");
         Assert.Contains(viewModel.Workspace.Evidence, item => item.Title == "New evidence");
+    }
+
+    [Fact]
+    public void SaveEvent_WithInvalidOccurredAt_SetsClearValidationMessage()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventOccurredAtText = "2026-04-21";
+
+        viewModel.Events.SaveEventCommand.Execute(null);
+
+        Assert.Equal(EventOccurredAtFormatting.ValidationMessage, viewModel.StatusMessage);
+        Assert.Empty(viewModel.Workspace.Events);
     }
 
     private static WorkspaceShellViewModel CreateShellViewModel(

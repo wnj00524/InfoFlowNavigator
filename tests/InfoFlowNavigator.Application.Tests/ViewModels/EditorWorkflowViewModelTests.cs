@@ -132,6 +132,67 @@ public sealed class EditorWorkflowViewModelTests
         Assert.Null(viewModel.SelectedEvidence);
     }
 
+    [Theory]
+    [InlineData("21/04/26")]
+    [InlineData("21/04/26 14:30")]
+    [InlineData("21/04/26 14:30:45")]
+    public void ParseOccurredAt_AcceptsAnalystFormat(string text)
+    {
+        var parsed = EventOccurredAtFormatting.ParseRequired(text);
+
+        Assert.NotEqual(default, parsed);
+    }
+
+    [Theory]
+    [InlineData("2026-04-21")]
+    [InlineData("04/21/26")]
+    [InlineData("April 21 2026")]
+    [InlineData("not-a-date")]
+    [InlineData("")]
+    public void ParseOccurredAt_RejectsNonAnalystFormat(string text)
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => EventOccurredAtFormatting.ParseRequired(text));
+
+        Assert.Equal(EventOccurredAtFormatting.ValidationMessage, ex.Message);
+    }
+
+    [Theory]
+    [InlineData("21/04/26", "21/04/26")]
+    [InlineData("21/04/26 14:30", "21/04/26 14:30")]
+    [InlineData("21/04/26 14:30:45", "21/04/26 14:30:45")]
+    public void EventOccurredAt_RoundTripsInAnalystFacingFormat(string text, string expected)
+    {
+        var parsed = EventOccurredAtFormatting.ParseRequired(text);
+        var formatted = EventOccurredAtFormatting.Format(parsed);
+
+        Assert.Equal(expected, formatted);
+    }
+
+    [Fact]
+    public void EventsViewModel_PopulatesOccurredAtTextInAnalystFacingFormat()
+    {
+        var parsed = EventOccurredAtFormatting.ParseRequired("21/04/26 14:30");
+        var viewModel = new EventsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
+
+        viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", parsed, "Notes", 0.7);
+
+        Assert.Equal("21/04/26 14:30", viewModel.EventOccurredAtText);
+    }
+
+    [Fact]
+    public void MainWindow_ShowsVisibleNewButtonsForEventsClaimsAndHypotheses()
+    {
+        var xamlPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "InfoFlowNavigator.UI", "Views", "MainWindow.axaml");
+        var xaml = File.ReadAllText(Path.GetFullPath(xamlPath));
+
+        Assert.Contains("Content=\"New Event\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Claim\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Hypothesis\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Add Event\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Add Claim\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Add Hypothesis\"", xaml, StringComparison.Ordinal);
+    }
+
     private sealed class NoOpCommand : ICommand
     {
         public event EventHandler? CanExecuteChanged

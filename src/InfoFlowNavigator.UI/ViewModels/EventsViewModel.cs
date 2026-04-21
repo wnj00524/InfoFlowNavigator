@@ -39,6 +39,8 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
 
     protected override string EditHintText => "Update the selected event and review its supporting evidence.";
 
+    public string OccurredAtHint => "Format: DD/MM/YY or DD/MM/YY HH:mm";
+
     public ObservableCollection<EventSummaryViewModel> Events { get; } = [];
 
     public ObservableCollection<LinkedEvidenceSummaryViewModel> LinkedEvidence { get; } = [];
@@ -168,7 +170,7 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         }
 
         EventTitle = summary.Title;
-        EventOccurredAtText = summary.OccurredAtUtc?.ToString("O", System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        EventOccurredAtText = EventOccurredAtFormatting.Format(summary.OccurredAtUtc);
         EventNotes = summary.Notes ?? string.Empty;
         EventConfidenceText = summary.Confidence?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
     }

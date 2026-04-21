@@ -447,6 +447,17 @@
               </StackPanel>
 
               <StackPanel Spacing="18" IsVisible="{Binding IsEventsMode}">
+                <Border Background="#EAF2FF" BorderBrush="#B8CCE3" BorderThickness="1" CornerRadius="12" Padding="14">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <StackPanel>
+                      <TextBlock FontWeight="SemiBold" Text="Add Event" />
+                      <TextBlock Classes="muted"
+                                 Text="Start a fresh event entry without needing to select an existing event first."
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="secondary" Content="New Event" Command="{Binding Events.BeginNewEventCommand}" />
+                  </Grid>
+                </Border>
                 <StackPanel Spacing="10">
                   <TextBlock Classes="section-title" Text="Event Stream" />
                   <TextBlock Classes="muted"
@@ -476,7 +487,18 @@
                 </StackPanel>
               </StackPanel>
 
-              <StackPanel Spacing="18" IsVisible="{Binding IsClaimsMode}">
+            <StackPanel Spacing="18" IsVisible="{Binding IsClaimsMode}">
+                <Border Background="#EAF2FF" BorderBrush="#B8CCE3" BorderThickness="1" CornerRadius="12" Padding="14">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <StackPanel>
+                      <TextBlock FontWeight="SemiBold" Text="Add Claim" />
+                      <TextBlock Classes="muted"
+                                 Text="Start a new analytic assertion directly from the claims list."
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="secondary" Content="New Claim" Command="{Binding Claims.BeginNewClaimCommand}" />
+                  </Grid>
+                </Border>
                 <StackPanel Spacing="10">
                   <TextBlock Classes="section-title" Text="Claims" />
                   <TextBlock Classes="muted"
@@ -501,7 +523,18 @@
                 </StackPanel>
               </StackPanel>
 
-              <StackPanel Spacing="18" IsVisible="{Binding IsHypothesesMode}">
+            <StackPanel Spacing="18" IsVisible="{Binding IsHypothesesMode}">
+                <Border Background="#EAF2FF" BorderBrush="#B8CCE3" BorderThickness="1" CornerRadius="12" Padding="14">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <StackPanel>
+                      <TextBlock FontWeight="SemiBold" Text="Add Hypothesis" />
+                      <TextBlock Classes="muted"
+                                 Text="Start a new competing explanation directly from the hypothesis list."
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Classes="secondary" Content="New Hypothesis" Command="{Binding Hypotheses.BeginNewHypothesisCommand}" />
+                  </Grid>
+                </Border>
                 <StackPanel Spacing="10">
                   <TextBlock Classes="section-title" Text="Hypotheses" />
                   <TextBlock Classes="muted"
@@ -771,7 +804,8 @@
               <TextBlock Classes="label" Text="Title" />
               <TextBox Text="{Binding Events.EventTitle}" PlaceholderText="Observed meeting" />
               <TextBlock Classes="label" Text="Occurred At" />
-              <TextBox Text="{Binding Events.EventOccurredAtText}" PlaceholderText="2026-04-20T13:00:00Z" />
+              <TextBlock Classes="muted" Text="{Binding Events.OccurredAtHint}" TextWrapping="Wrap" />
+              <TextBox Text="{Binding Events.EventOccurredAtText}" PlaceholderText="21/04/26 or 21/04/26 14:30" />
               <TextBlock Classes="label" Text="Notes" />
               <TextBox Text="{Binding Events.EventNotes}"
                        AcceptsReturn="True"
