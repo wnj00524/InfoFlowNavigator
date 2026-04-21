@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using InfoFlowNavigator.Application.Abstractions;
+using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.Entities;
 using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.EvidenceLinks;
@@ -64,6 +65,8 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
         IReadOnlyList<EntityDocument> Entities,
         IReadOnlyList<RelationshipDocument> Relationships,
         IReadOnlyList<EventDocument> Events,
+        IReadOnlyList<EventParticipantDocument> EventParticipants,
+        IReadOnlyList<ClaimDocument> Claims,
         IReadOnlyList<HypothesisDocument> Hypotheses,
         IReadOnlyList<EvidenceDocument> Evidence,
         IReadOnlyList<EvidenceLinkDocument> EvidenceLinks)
@@ -80,6 +83,8 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
                 workspace.Entities.Select(EntityDocument.FromDomain).ToArray(),
                 workspace.Relationships.Select(RelationshipDocument.FromDomain).ToArray(),
                 workspace.Events.Select(EventDocument.FromDomain).ToArray(),
+                workspace.EventParticipants.Select(EventParticipantDocument.FromDomain).ToArray(),
+                workspace.Claims.Select(ClaimDocument.FromDomain).ToArray(),
                 workspace.Hypotheses.Select(HypothesisDocument.FromDomain).ToArray(),
                 workspace.Evidence.Select(EvidenceDocument.FromDomain).ToArray(),
                 workspace.EvidenceLinks.Select(EvidenceLinkDocument.FromDomain).ToArray());
@@ -96,6 +101,8 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
                 (Entities ?? []).Select(static entity => entity.ToDomain()).ToArray(),
                 (Relationships ?? []).Select(static relationship => relationship.ToDomain()).ToArray(),
                 (Events ?? []).Select(static @event => @event.ToDomain()).ToArray(),
+                (EventParticipants ?? []).Select(static participant => participant.ToDomain()).ToArray(),
+                (Claims ?? []).Select(static claim => claim.ToDomain()).ToArray(),
                 (Hypotheses ?? []).Select(static hypothesis => hypothesis.ToDomain()).ToArray(),
                 (Evidence ?? []).Select(static evidence => evidence.ToDomain()).ToArray(),
                 (EvidenceLinks ?? []).Select(static evidenceLink => evidenceLink.ToDomain()).ToArray());
@@ -208,6 +215,87 @@ public sealed class JsonWorkspaceRepository : IWorkspaceRepository
                 Confidence,
                 Tags ?? [],
                 Metadata ?? new Dictionary<string, string>(),
+                CreatedAtUtc,
+                UpdatedAtUtc);
+    }
+
+    private sealed record EventParticipantDocument(
+        Guid Id,
+        Guid EventId,
+        Guid EntityId,
+        string Role,
+        double? Confidence,
+        string? Notes,
+        DateTimeOffset CreatedAtUtc,
+        DateTimeOffset UpdatedAtUtc)
+    {
+        public static EventParticipantDocument FromDomain(EventParticipant participant) =>
+            new(
+                participant.Id,
+                participant.EventId,
+                participant.EntityId,
+                participant.Role,
+                participant.Confidence,
+                participant.Notes,
+                participant.CreatedAtUtc,
+                participant.UpdatedAtUtc);
+
+        public EventParticipant ToDomain() =>
+            new(
+                Id,
+                EventId,
+                EntityId,
+                Role,
+                Confidence,
+                Notes,
+                CreatedAtUtc,
+                UpdatedAtUtc);
+    }
+
+    private sealed record ClaimDocument(
+        Guid Id,
+        string Statement,
+        ClaimType ClaimType,
+        ClaimStatus Status,
+        double? Confidence,
+        string? Notes,
+        IReadOnlyList<string> Tags,
+        IReadOnlyDictionary<string, string> Metadata,
+        ClaimTargetKind? TargetKind,
+        Guid? TargetId,
+        Guid? HypothesisId,
+        DateTimeOffset CreatedAtUtc,
+        DateTimeOffset UpdatedAtUtc)
+    {
+        public static ClaimDocument FromDomain(Claim claim) =>
+            new(
+                claim.Id,
+                claim.Statement,
+                claim.ClaimType,
+                claim.Status,
+                claim.Confidence,
+                claim.Notes,
+                claim.Tags,
+                claim.Metadata,
+                claim.TargetKind,
+                claim.TargetId,
+                claim.HypothesisId,
+                claim.CreatedAtUtc,
+                claim.UpdatedAtUtc);
+
+        public Claim ToDomain() =>
+            new(
+                Id,
+                Statement,
+                ClaimType,
+                Status,
+                Confidence,
+                Notes,
+                Tags ?? [],
+                Metadata ?? new Dictionary<string, string>(),
+                TargetKind,
+                TargetId,
+                HypothesisId,
                 CreatedAtUtc,
                 UpdatedAtUtc);
     }

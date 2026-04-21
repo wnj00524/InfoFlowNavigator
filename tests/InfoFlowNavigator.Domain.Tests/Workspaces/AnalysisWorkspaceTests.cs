@@ -1,5 +1,6 @@
 using InfoFlowNavigator.Domain.Entities;
 using WorkspaceEvidence = InfoFlowNavigator.Domain.Evidence.Evidence;
+using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.Hypotheses;
@@ -39,6 +40,8 @@ public sealed class AnalysisWorkspaceTests
             createdAt,
             createdAt,
             [entity],
+            [],
+            [],
             [],
             [],
             [],
@@ -117,5 +120,52 @@ public sealed class AnalysisWorkspaceTests
         Assert.Single(withLink.EvidenceLinks);
         Assert.Equal(EvidenceRelationToTarget.Contextual, withLink.EvidenceLinks[0].RelationToTarget);
         Assert.Empty(removed.EvidenceLinks);
+    }
+
+    [Fact]
+    public void AddClaimAndParticipant_ValidateReferencesAndDuplicates()
+    {
+        var entity = Entity.Create("Alice", "Person");
+        var @event = Event.Create("Meeting");
+        var hypothesis = Hypothesis.Create("H1", "Alice attended the meeting.");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddEntity(entity)
+            .AddEvent(@event)
+            .AddHypothesis(hypothesis);
+
+        var claim = Claim.Create(
+            "Alice attended the meeting.",
+            ClaimType.EventParticipation,
+            ClaimStatus.Active,
+            0.8,
+            targetKind: ClaimTargetKind.Event,
+            targetId: @event.Id,
+            hypothesisId: hypothesis.Id);
+
+        var withClaim = workspace.AddClaim(claim);
+        var withParticipant = withClaim.AddEventParticipant(EventParticipant.Create(@event.Id, entity.Id, "attendee", 0.7));
+
+        Assert.Single(withClaim.Claims);
+        Assert.Single(withParticipant.EventParticipants);
+
+        var duplicateAct = () => withParticipant.AddEventParticipant(EventParticipant.Create(@event.Id, entity.Id, "attendee", 0.6));
+        var duplicateEx = Assert.Throws<InvalidOperationException>(duplicateAct);
+        Assert.Contains("same event, entity, and role", duplicateEx.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RemoveClaim_WithReferencingEvidenceAssessment_Throws()
+    {
+        var claim = Claim.Create("Alice attended Event A.", ClaimType.EventParticipation, ClaimStatus.Active);
+        var evidence = WorkspaceEvidence.Create("Interview");
+        var workspace = AnalysisWorkspace.CreateNew("Case Alpha")
+            .AddClaim(claim)
+            .AddEvidence(evidence)
+            .AddEvidenceLink(EvidenceLink.Create(evidence.Id, EvidenceLinkTargetKind.Claim, claim.Id, EvidenceRelationToTarget.Supports));
+
+        var act = () => workspace.RemoveClaim(claim.Id);
+
+        var ex = Assert.Throws<InvalidOperationException>(act);
+        Assert.Contains("evidence assessments still reference", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -15,12 +15,10 @@ internal static class CompositionRoot
         var workspaceRepository = new JsonWorkspaceRepository();
         var workspaceService = new WorkspaceApplicationService(workspaceRepository);
         var analysisService = new WorkspaceAnalysisService();
+        var exportService = new GraphMlWorkspaceAdapter();
+        var reportGenerator = new PlainTextReportGenerator(analysisService);
 
-        _ = analysisService;
-        _ = new GraphMlWorkspaceAdapter();
-        _ = new PlainTextReportGenerator(analysisService);
-
-        var shellViewModel = new WorkspaceShellViewModel(workspaceService, analysisService);
+        var shellViewModel = new WorkspaceShellViewModel(workspaceService, analysisService, reportGenerator, exportService);
         return new MainWindow(shellViewModel);
     }
 }

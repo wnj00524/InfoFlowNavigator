@@ -201,6 +201,12 @@
               <TextBlock Foreground="#D9E2EC" Text="{Binding WorkspaceEventCount, StringFormat='Events {0}'}" />
             </Border>
             <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
+              <TextBlock Foreground="#D9E2EC" Text="{Binding WorkspaceParticipantCount, StringFormat='Participants {0}'}" />
+            </Border>
+            <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
+              <TextBlock Foreground="#D9E2EC" Text="{Binding WorkspaceClaimCount, StringFormat='Claims {0}'}" />
+            </Border>
+            <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
               <TextBlock Foreground="#D9E2EC" Text="{Binding WorkspaceHypothesisCount, StringFormat='Hypotheses {0}'}" />
             </Border>
             <Border Background="#173F5F" CornerRadius="999" Padding="10,6">
@@ -228,6 +234,10 @@
             <Button Classes="secondary" Content="New" Command="{Binding NewWorkspaceCommand}" />
             <Button Classes="secondary" Content="Open" Command="{Binding OpenWorkspaceCommand}" />
             <Button Content="Save" Command="{Binding SaveWorkspaceCommand}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Classes="ghost" Content="Briefing" Command="{Binding ExportBriefingCommand}" />
+            <Button Classes="ghost" Content="Network Export" Command="{Binding ExportNetworkCommand}" />
           </StackPanel>
           <Border Background="#173F5F" CornerRadius="12" Padding="12" Width="320">
             <TextBlock Foreground="#E8F0F8" Text="{Binding StatusMessage}" TextWrapping="Wrap" />
@@ -280,7 +290,7 @@
           <ScrollViewer Padding="18" HorizontalScrollBarVisibility="Disabled">
             <Grid>
               <StackPanel Spacing="18" IsVisible="{Binding IsOverviewMode}">
-                <Grid ColumnDefinitions="*,*,*,*,*,*" ColumnSpacing="12">
+                <Grid ColumnDefinitions="*,*,*,*,*,*,*" ColumnSpacing="12">
                   <Border Classes="metric-card">
                     <StackPanel>
                       <TextBlock Classes="label" Text="Entities" />
@@ -301,17 +311,23 @@
                   </Border>
                   <Border Grid.Column="3" Classes="metric-card">
                     <StackPanel>
+                      <TextBlock Classes="label" Text="Claims" />
+                      <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding WorkspaceClaimCount}" />
+                    </StackPanel>
+                  </Border>
+                  <Border Grid.Column="4" Classes="metric-card">
+                    <StackPanel>
                       <TextBlock Classes="label" Text="Hypotheses" />
                       <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding Overview.HypothesisCount}" />
                     </StackPanel>
                   </Border>
-                  <Border Grid.Column="4" Classes="metric-card">
+                  <Border Grid.Column="5" Classes="metric-card">
                     <StackPanel>
                       <TextBlock Classes="label" Text="Evidence" />
                       <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding Overview.EvidenceCount}" />
                     </StackPanel>
                   </Border>
-                  <Border Grid.Column="5" Classes="metric-card">
+                  <Border Grid.Column="6" Classes="metric-card">
                     <StackPanel>
                       <TextBlock Classes="label" Text="Assessments" />
                       <TextBlock FontSize="28" FontWeight="SemiBold" Text="{Binding Overview.EvidenceLinkCount}" />
@@ -326,6 +342,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <Button Classes="ghost" Content="Review Entities" Command="{Binding ShowEntitiesCommand}" />
                       <Button Classes="ghost" Content="Review Events" Command="{Binding ShowEventsCommand}" />
+                      <Button Classes="ghost" Content="Review Claims" Command="{Binding ShowClaimsCommand}" />
                       <Button Classes="ghost" Content="Review Hypotheses" Command="{Binding ShowHypothesesCommand}" />
                       <Button Classes="ghost" Content="Review Evidence" Command="{Binding ShowEvidenceCommand}" />
                       <Button Classes="ghost" Content="Review Findings" Command="{Binding ShowFindingsCommand}" />
@@ -459,6 +476,31 @@
                 </StackPanel>
               </StackPanel>
 
+              <StackPanel Spacing="18" IsVisible="{Binding IsClaimsMode}">
+                <StackPanel Spacing="10">
+                  <TextBlock Classes="section-title" Text="Claims" />
+                  <TextBlock Classes="muted"
+                             Text="Track specific assertions that bridge evidence, events, relationships, and higher-level hypotheses."
+                             TextWrapping="Wrap" />
+                  <TextBlock Classes="muted"
+                             IsVisible="{Binding Claims.IsEmpty}"
+                             Text="No claims yet. Add the concrete assertions you want to test and support directly."
+                             TextWrapping="Wrap" />
+                  <ListBox ItemsSource="{Binding Claims.Claims}" SelectedItem="{Binding Claims.SelectedClaim}">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:ClaimSummaryViewModel">
+                        <Border Margin="0,0,0,8" Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12" Padding="14">
+                          <StackPanel>
+                            <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                            <TextBlock Classes="muted" Text="{Binding Notes}" TextWrapping="Wrap" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </StackPanel>
+              </StackPanel>
+
               <StackPanel Spacing="18" IsVisible="{Binding IsHypothesesMode}">
                 <StackPanel Spacing="10">
                   <TextBlock Classes="section-title" Text="Hypotheses" />
@@ -578,15 +620,17 @@
               <StackPanel Spacing="18" IsVisible="{Binding IsFindingsMode}">
                 <StackPanel Spacing="8">
                   <TextBlock Classes="section-title" Text="Analyst Guidance" />
+                  <TextBlock Classes="muted" Text="{Binding Findings.TopPrioritySummary}" TextWrapping="Wrap" />
                   <TextBlock Classes="muted" Text="{Binding Findings.SupportCoverageSummary}" TextWrapping="Wrap" />
                   <TextBlock Classes="muted" Text="{Binding Findings.TimelineCoverageSummary}" TextWrapping="Wrap" />
                 </StackPanel>
-                <ItemsControl ItemsSource="{Binding Findings.Findings}">
+                <ItemsControl ItemsSource="{Binding Findings.TopPriorityFindings}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="analysis:AnalysisFinding">
                       <Border Margin="0,0,0,8" Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="12" Padding="14">
                         <StackPanel>
                           <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                          <TextBlock Classes="muted" Text="{Binding Severity}" />
                           <TextBlock Classes="muted" Text="{Binding Detail}" TextWrapping="Wrap" />
                         </StackPanel>
                       </Border>
@@ -611,7 +655,7 @@
                 <StackPanel Spacing="8">
                   <TextBlock FontWeight="SemiBold" Text="Suggested Workflow" />
                   <TextBlock Classes="muted"
-                             Text="1. Add the main entities. 2. Capture the strongest evidence. 3. Record dated events. 4. Draft hypotheses. 5. Add structured assessments. 6. Review findings."
+                             Text="1. Add the main entities. 2. Capture the strongest evidence. 3. Record dated events. 4. Add participant rows. 5. Draft claims. 6. Promote the strongest claims into hypotheses and findings."
                              TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
@@ -724,9 +768,117 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+              <TextBlock Classes="label" Text="Participants" />
+              <ComboBox ItemsSource="{Binding Events.ParticipantEntities}" SelectedItem="{Binding Events.SelectedParticipantEntity}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EntityOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBox Text="{Binding Events.ParticipantRole}" PlaceholderText="Role in event" />
+              <TextBox Text="{Binding Events.ParticipantConfidenceText}" PlaceholderText="Participant confidence (optional)" />
+              <TextBox Text="{Binding Events.ParticipantNotes}"
+                       AcceptsReturn="True"
+                       Height="72"
+                       TextWrapping="Wrap"
+                       VerticalContentAlignment="Top"
+                       PlaceholderText="Participant notes" />
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Content="Save Participant" Command="{Binding Events.AddParticipantCommand}" />
+                <Button Grid.Column="1" Classes="danger" Content="Remove Participant" Command="{Binding Events.RemoveParticipantCommand}" />
+              </Grid>
+              <ItemsControl ItemsSource="{Binding Events.Participants}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EventParticipantSummaryViewModel">
+                    <Border Margin="0,0,0,8" Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="10" Padding="12">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                        <TextBlock Classes="muted" Text="{Binding SecondaryText}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                 <Button Content="{Binding Events.PrimaryActionLabel}" Command="{Binding Events.SaveEventCommand}" />
                 <Button Grid.Column="1" Classes="danger" Content="Delete Event" Command="{Binding Events.DeleteEventCommand}" />
+              </Grid>
+            </StackPanel>
+
+            <StackPanel Spacing="14" IsVisible="{Binding IsClaimsMode}">
+              <TextBlock Classes="section-title" Text="{Binding Claims.EditorTitle}" />
+              <TextBlock Classes="muted" Text="{Binding Claims.EditorHint}" TextWrapping="Wrap" />
+              <Button Classes="secondary" Content="New Claim" Command="{Binding Claims.BeginNewClaimCommand}" />
+              <TextBlock Classes="label" Text="Statement" />
+              <TextBox Text="{Binding Claims.Statement}"
+                       AcceptsReturn="True"
+                       Height="88"
+                       TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+              <TextBlock Classes="label" Text="Claim Type" />
+              <ComboBox ItemsSource="{Binding Claims.ClaimTypes}" SelectedItem="{Binding Claims.SelectedClaimType}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ClaimTypeOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="label" Text="Status" />
+              <ComboBox ItemsSource="{Binding Claims.ClaimStatuses}" SelectedItem="{Binding Claims.SelectedClaimStatus}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ClaimStatusOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="label" Text="Target Kind" />
+              <ComboBox ItemsSource="{Binding Claims.TargetKinds}" SelectedItem="{Binding Claims.SelectedTargetKind}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ClaimTargetKindOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <ComboBox ItemsSource="{Binding Claims.Targets}" SelectedItem="{Binding Claims.SelectedTarget}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:TargetOptionViewModel">
+                    <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="label" Text="Related Hypothesis" />
+              <ComboBox ItemsSource="{Binding Claims.Hypotheses}" SelectedItem="{Binding Claims.SelectedHypothesis}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:HypothesisSummaryViewModel">
+                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Classes="label" Text="Confidence" />
+              <TextBox Text="{Binding Claims.ConfidenceText}" PlaceholderText="0.0 to 1.0" />
+              <TextBlock Classes="label" Text="Notes" />
+              <TextBox Text="{Binding Claims.Notes}"
+                       AcceptsReturn="True"
+                       Height="88"
+                       TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+              <TextBlock Classes="label" Text="Linked Evidence" />
+              <ItemsControl ItemsSource="{Binding Claims.LinkedEvidence}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:LinkedEvidenceSummaryViewModel">
+                    <Border Margin="0,0,0,8" Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="10" Padding="12">
+                      <StackPanel>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" />
+                        <TextBlock Classes="muted" Text="{Binding SecondaryText}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Button Content="{Binding Claims.PrimaryActionLabel}" Command="{Binding Claims.SaveClaimCommand}" />
+                <Button Grid.Column="1" Classes="danger" Content="Delete Claim" Command="{Binding Claims.DeleteClaimCommand}" />
               </Grid>
             </StackPanel>
 
@@ -819,7 +971,16 @@
             <StackPanel Spacing="14" IsVisible="{Binding IsFindingsMode}">
               <TextBlock Classes="section-title" Text="Finding Buckets" />
               <TextBlock Classes="muted" Text="Use these grouped lists to turn support gaps into next actions." TextWrapping="Wrap" />
+              <TextBlock Classes="muted" Text="{Binding Findings.TopPrioritySummary}" TextWrapping="Wrap" />
               <TextBlock Classes="muted" Text="{Binding Findings.InferenceSummary}" TextWrapping="Wrap" />
+              <TextBlock Classes="label" Text="Top Priority" />
+              <ItemsControl ItemsSource="{Binding Findings.TopPriorityFindings}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="analysis:AnalysisFinding">
+                    <TextBlock Margin="0,0,0,6" Text="{Binding Title, StringFormat='- {0}'}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
               <TextBlock Classes="label" Text="Hypothesis Conflicts" />
               <ItemsControl ItemsSource="{Binding Findings.HypothesisConflicts}">
                 <ItemsControl.ItemTemplate>
@@ -854,6 +1015,30 @@
               </ItemsControl>
               <TextBlock Classes="label" Text="Events Without Support" />
               <ItemsControl ItemsSource="{Binding Findings.UnsupportedEvents}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Margin="0,0,0,6" Text="{Binding .}" TextWrapping="Wrap" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="label" Text="Claims Without Support" />
+              <ItemsControl ItemsSource="{Binding Findings.UnsupportedClaims}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Margin="0,0,0,6" Text="{Binding .}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="label" Text="Event Participation Gaps" />
+              <ItemsControl ItemsSource="{Binding Findings.EventParticipationGaps}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Margin="0,0,0,6" Text="{Binding .}" TextWrapping="Wrap" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Classes="label" Text="Repeated Co-occurrence" />
+              <ItemsControl ItemsSource="{Binding Findings.RepeatedCoOccurrences}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
                     <TextBlock Margin="0,0,0,6" Text="{Binding .}" TextWrapping="Wrap" />

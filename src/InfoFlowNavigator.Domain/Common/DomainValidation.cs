@@ -57,4 +57,19 @@ internal static class DomainValidation
 
         return confidence;
     }
+
+    public static Guid? NormalizeOptionalGuid(Guid? value, string paramName)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("Identifier cannot be empty.", paramName);
+        }
+
+        return value;
+    }
 }

@@ -7,20 +7,29 @@ public sealed class EventsViewModel : ViewModelBase
 {
     private readonly Action<EventSummaryViewModel?> _selectionChanged;
     private EventSummaryViewModel? _selectedEvent;
+    private EventParticipantSummaryViewModel? _selectedParticipant;
+    private EntityOptionViewModel? _selectedParticipantEntity;
     private string _eventTitle = string.Empty;
     private string _eventOccurredAtText = string.Empty;
     private string _eventNotes = string.Empty;
     private string _eventConfidenceText = string.Empty;
+    private string _participantRole = string.Empty;
+    private string _participantConfidenceText = string.Empty;
+    private string _participantNotes = string.Empty;
 
     public EventsViewModel(
         ICommand beginNewEventCommand,
         ICommand saveEventCommand,
         ICommand deleteEventCommand,
+        ICommand addParticipantCommand,
+        ICommand removeParticipantCommand,
         Action<EventSummaryViewModel?> selectionChanged)
     {
         BeginNewEventCommand = beginNewEventCommand;
         SaveEventCommand = saveEventCommand;
         DeleteEventCommand = deleteEventCommand;
+        AddParticipantCommand = addParticipantCommand;
+        RemoveParticipantCommand = removeParticipantCommand;
         _selectionChanged = selectionChanged;
     }
 
@@ -28,11 +37,19 @@ public sealed class EventsViewModel : ViewModelBase
 
     public ObservableCollection<LinkedEvidenceSummaryViewModel> LinkedEvidence { get; } = [];
 
+    public ObservableCollection<EventParticipantSummaryViewModel> Participants { get; } = [];
+
+    public ObservableCollection<EntityOptionViewModel> ParticipantEntities { get; } = [];
+
     public ICommand BeginNewEventCommand { get; }
 
     public ICommand SaveEventCommand { get; }
 
     public ICommand DeleteEventCommand { get; }
+
+    public ICommand AddParticipantCommand { get; }
+
+    public ICommand RemoveParticipantCommand { get; }
 
     public EventSummaryViewModel? SelectedEvent
     {
@@ -76,6 +93,42 @@ public sealed class EventsViewModel : ViewModelBase
         set => SetProperty(ref _eventConfidenceText, value);
     }
 
+    public EventParticipantSummaryViewModel? SelectedParticipant
+    {
+        get => _selectedParticipant;
+        set
+        {
+            if (SetProperty(ref _selectedParticipant, value))
+            {
+                PopulateParticipantEditor(value);
+            }
+        }
+    }
+
+    public EntityOptionViewModel? SelectedParticipantEntity
+    {
+        get => _selectedParticipantEntity;
+        set => SetProperty(ref _selectedParticipantEntity, value);
+    }
+
+    public string ParticipantRole
+    {
+        get => _participantRole;
+        set => SetProperty(ref _participantRole, value);
+    }
+
+    public string ParticipantConfidenceText
+    {
+        get => _participantConfidenceText;
+        set => SetProperty(ref _participantConfidenceText, value);
+    }
+
+    public string ParticipantNotes
+    {
+        get => _participantNotes;
+        set => SetProperty(ref _participantNotes, value);
+    }
+
     public bool HasSelection => SelectedEvent is not null;
 
     public bool NoSelection => !HasSelection;
@@ -111,6 +164,18 @@ public sealed class EventsViewModel : ViewModelBase
     public void UpdateLinkedEvidence(IReadOnlyList<LinkedEvidenceSummaryViewModel> linkedEvidence) =>
         ReplaceCollection(LinkedEvidence, linkedEvidence);
 
+    public void UpdateParticipants(IReadOnlyList<EventParticipantSummaryViewModel> participants, IReadOnlyList<EntityOptionViewModel> entities)
+    {
+        var selectedParticipantId = SelectedParticipant?.Id;
+        ReplaceCollection(Participants, participants);
+        ReplaceCollection(ParticipantEntities, entities);
+        SelectedParticipant = selectedParticipantId is null ? null : Participants.FirstOrDefault(item => item.Id == selectedParticipantId);
+        if (SelectedParticipant is null)
+        {
+            ClearParticipantEditor();
+        }
+    }
+
     private void PopulateEditor(EventSummaryViewModel? summary)
     {
         if (summary is null)
@@ -131,6 +196,28 @@ public sealed class EventsViewModel : ViewModelBase
         EventOccurredAtText = string.Empty;
         EventNotes = string.Empty;
         EventConfidenceText = string.Empty;
+    }
+
+    private void PopulateParticipantEditor(EventParticipantSummaryViewModel? participant)
+    {
+        if (participant is null)
+        {
+            ClearParticipantEditor();
+            return;
+        }
+
+        SelectedParticipantEntity = ParticipantEntities.FirstOrDefault(item => item.Id == participant.EntityId);
+        ParticipantRole = participant.Role;
+        ParticipantConfidenceText = participant.Confidence?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+        ParticipantNotes = participant.Notes ?? string.Empty;
+    }
+
+    public void ClearParticipantEditor()
+    {
+        SelectedParticipantEntity = null;
+        ParticipantRole = string.Empty;
+        ParticipantConfidenceText = string.Empty;
+        ParticipantNotes = string.Empty;
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)

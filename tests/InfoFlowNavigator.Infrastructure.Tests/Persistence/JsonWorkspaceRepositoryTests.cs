@@ -1,5 +1,6 @@
 using InfoFlowNavigator.Domain.Entities;
 using WorkspaceEvidence = InfoFlowNavigator.Domain.Evidence.Evidence;
+using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.Hypotheses;
@@ -20,10 +21,13 @@ public sealed class JsonWorkspaceRepositoryTests
         workspace = workspace.AddEntity(Entity.Create("Contoso", "Organization", "Employer", 0.7));
         workspace = workspace.AddRelationship(Relationship.Create(workspace.Entities[0].Id, workspace.Entities[1].Id, "employed_by", "Confirmed through interview", 0.9));
         workspace = workspace.AddEvent(Event.Create("Interview conducted", DateTimeOffset.Parse("2026-04-20T12:00:00Z"), "Analyst interview", 0.8));
+        workspace = workspace.AddEventParticipant(EventParticipant.Create(workspace.Events[0].Id, workspace.Entities[0].Id, "interviewee", 0.7));
         workspace = workspace.AddHypothesis(Hypothesis.Create("Employment", "Alice works for Contoso.", HypothesisStatus.Active, 0.7));
+        workspace = workspace.AddClaim(Claim.Create("Alice works for Contoso.", ClaimType.Relationship, ClaimStatus.Active, 0.75, targetKind: ClaimTargetKind.Relationship, targetId: workspace.Relationships[0].Id, hypothesisId: workspace.Hypotheses[0].Id));
         workspace = workspace.AddEvidence(WorkspaceEvidence.Create("Interview Summary", "INT-001", "Alice confirmed her role at Contoso.", 0.85));
         workspace = workspace.AddEvidenceLink(EvidenceLink.Create(workspace.Evidence[0].Id, EvidenceLinkTargetKind.Relationship, workspace.Relationships[0].Id, EvidenceRelationToTarget.Supports, EvidenceStrength.Strong, "Direct support"));
         workspace = workspace.AddEvidenceLink(EvidenceLink.Create(workspace.Evidence[0].Id, EvidenceLinkTargetKind.Hypothesis, workspace.Hypotheses[0].Id, EvidenceRelationToTarget.Supports, EvidenceStrength.Moderate, "Feeds the hypothesis"));
+        workspace = workspace.AddEvidenceLink(EvidenceLink.Create(workspace.Evidence[0].Id, EvidenceLinkTargetKind.Claim, workspace.Claims[0].Id, EvidenceRelationToTarget.Supports, EvidenceStrength.Strong, "Directly supports the claim"));
 
         var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.ifn.json");
 
@@ -35,9 +39,13 @@ public sealed class JsonWorkspaceRepositoryTests
 
             Assert.Equal(workspace.Name, reloaded.Name);
             Assert.Single(reloaded.Hypotheses);
-            Assert.Equal(2, reloaded.EvidenceLinks.Count);
+            Assert.Single(reloaded.Claims);
+            Assert.Single(reloaded.EventParticipants);
+            Assert.Equal(3, reloaded.EvidenceLinks.Count);
             Assert.Equal(EvidenceRelationToTarget.Supports, reloaded.EvidenceLinks[0].RelationToTarget);
             Assert.Contains("\"hypotheses\"", json, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("\"claims\"", json, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("\"eventParticipants\"", json, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("\"relationToTarget\": \"Supports\"", json, StringComparison.Ordinal);
             Assert.Contains("\"strength\": \"Strong\"", json, StringComparison.Ordinal);
         }

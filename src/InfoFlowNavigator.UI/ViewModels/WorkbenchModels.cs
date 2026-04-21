@@ -1,3 +1,5 @@
+using InfoFlowNavigator.Application.Analysis;
+using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 
@@ -9,6 +11,7 @@ public enum WorkbenchSection
     Entities,
     Relationships,
     Events,
+    Claims,
     Hypotheses,
     Evidence,
     Findings
@@ -42,6 +45,40 @@ public sealed record EventSummaryViewModel(Guid Id, string Title, DateTimeOffset
     public string DisplayName => OccurredAtUtc is null ? Title : $"{OccurredAtUtc:yyyy-MM-dd}: {Title}";
     public string TimelineLabel => OccurredAtUtc?.ToString("yyyy-MM-dd HH:mm 'UTC'") ?? "Undated";
 }
+
+public sealed record EventParticipantSummaryViewModel(
+    Guid Id,
+    Guid EntityId,
+    string EntityDisplayName,
+    string Role,
+    double? Confidence,
+    string? Notes)
+{
+    public string DisplayName => $"{EntityDisplayName} as {Role}";
+    public string SecondaryText => Confidence is null
+        ? Notes ?? "No confidence"
+        : $"Confidence {Confidence:0.##}{(string.IsNullOrWhiteSpace(Notes) ? string.Empty : $" | {Notes}")}";
+}
+
+public sealed record ClaimSummaryViewModel(
+    Guid Id,
+    string Statement,
+    ClaimType ClaimType,
+    ClaimStatus Status,
+    double? Confidence,
+    string? Notes,
+    ClaimTargetKind? TargetKind,
+    Guid? TargetId,
+    Guid? HypothesisId)
+{
+    public string DisplayName => $"{Statement} [{Status}]";
+}
+
+public sealed record ClaimTypeOptionViewModel(ClaimType ClaimType, string DisplayName);
+
+public sealed record ClaimStatusOptionViewModel(ClaimStatus Status, string DisplayName);
+
+public sealed record ClaimTargetKindOptionViewModel(ClaimTargetKind? Kind, string DisplayName);
 
 public sealed record HypothesisSummaryViewModel(Guid Id, string Title, string Statement, HypothesisStatus Status, double? Confidence, string? Notes)
 {
@@ -84,3 +121,5 @@ public sealed record EvidenceLinkSummaryViewModel(
     public string DisplayName => $"{EvidenceTitle} -> {TargetKind} -> {TargetDisplayName}";
     public string SecondaryText => $"{RelationToTarget} | {Strength}{(string.IsNullOrWhiteSpace(Notes) ? string.Empty : $" | {Notes}")}";
 }
+
+public sealed record FindingGroupViewModel(string Title, IReadOnlyList<AnalysisFinding> Items);

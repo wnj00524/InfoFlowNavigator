@@ -1,4 +1,5 @@
 using InfoFlowNavigator.Domain.Common;
+using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.Entities;
 using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.EvidenceLinks;
@@ -19,6 +20,8 @@ public sealed record AnalysisWorkspace(
     IReadOnlyList<Entity> Entities,
     IReadOnlyList<Relationship> Relationships,
     IReadOnlyList<Event> Events,
+    IReadOnlyList<EventParticipant> EventParticipants,
+    IReadOnlyList<Claim> Claims,
     IReadOnlyList<Hypothesis> Hypotheses,
     IReadOnlyList<WorkspaceEvidence> Evidence,
     IReadOnlyList<EvidenceLink> EvidenceLinks)
@@ -37,6 +40,8 @@ public sealed record AnalysisWorkspace(
             DomainValidation.NormalizeTags(tags),
             now,
             now,
+            [],
+            [],
             [],
             [],
             [],
@@ -101,6 +106,16 @@ public sealed record AnalysisWorkspace(
             throw new InvalidOperationException("Cannot remove entity while relationships still reference it.");
         }
 
+        if (EventParticipants.Any(participant => participant.EntityId == entityId))
+        {
+            throw new InvalidOperationException("Cannot remove entity while event participants still reference it.");
+        }
+
+        if (Claims.Any(claim => claim.TargetKind == ClaimTargetKind.Entity && claim.TargetId == entityId))
+        {
+            throw new InvalidOperationException("Cannot remove entity while claims still reference it.");
+        }
+
         if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Entity && link.TargetId == entityId))
         {
             throw new InvalidOperationException("Cannot remove entity while evidence assessments still reference it.");
@@ -151,6 +166,11 @@ public sealed record AnalysisWorkspace(
             throw new InvalidOperationException($"Relationship '{relationshipId}' does not exist in the workspace.");
         }
 
+        if (Claims.Any(claim => claim.TargetKind == ClaimTargetKind.Relationship && claim.TargetId == relationshipId))
+        {
+            throw new InvalidOperationException("Cannot remove relationship while claims still reference it.");
+        }
+
         if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Relationship && link.TargetId == relationshipId))
         {
             throw new InvalidOperationException("Cannot remove relationship while evidence assessments still reference it.");
@@ -176,6 +196,75 @@ public sealed record AnalysisWorkspace(
         {
             UpdatedAtUtc = DateTimeOffset.UtcNow,
             Events = Events.Concat([@event]).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace AddEventParticipant(EventParticipant participant)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+
+        if (!Events.Any(@event => @event.Id == participant.EventId))
+        {
+            throw new InvalidOperationException("Event participant must reference an existing event.");
+        }
+
+        if (!Entities.Any(entity => entity.Id == participant.EntityId))
+        {
+            throw new InvalidOperationException("Event participant must reference an existing entity.");
+        }
+
+        if (EventParticipants.Any(existing => existing.Id == participant.Id))
+        {
+            throw new InvalidOperationException($"Event participant '{participant.Id}' already exists in the workspace.");
+        }
+
+        if (EventParticipants.Any(existing =>
+                existing.EventId == participant.EventId &&
+                existing.EntityId == participant.EntityId &&
+                string.Equals(existing.Role, participant.Role, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("A participant with the same event, entity, and role already exists.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            EventParticipants = EventParticipants.Concat([participant]).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace UpdateEventParticipant(EventParticipant participant)
+    {
+        ArgumentNullException.ThrowIfNull(participant);
+
+        if (!EventParticipants.Any(existing => existing.Id == participant.Id))
+        {
+            throw new InvalidOperationException($"Event participant '{participant.Id}' does not exist in the workspace.");
+        }
+
+        if (!Events.Any(@event => @event.Id == participant.EventId))
+        {
+            throw new InvalidOperationException("Event participant must reference an existing event.");
+        }
+
+        if (!Entities.Any(entity => entity.Id == participant.EntityId))
+        {
+            throw new InvalidOperationException("Event participant must reference an existing entity.");
+        }
+
+        if (EventParticipants.Any(existing =>
+                existing.Id != participant.Id &&
+                existing.EventId == participant.EventId &&
+                existing.EntityId == participant.EntityId &&
+                string.Equals(existing.Role, participant.Role, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("A participant with the same event, entity, and role already exists.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            EventParticipants = EventParticipants.Select(existing => existing.Id == participant.Id ? participant : existing).ToArray()
         };
     }
 
@@ -207,6 +296,16 @@ public sealed record AnalysisWorkspace(
             throw new InvalidOperationException($"Event '{eventId}' does not exist in the workspace.");
         }
 
+        if (EventParticipants.Any(participant => participant.EventId == eventId))
+        {
+            throw new InvalidOperationException("Cannot remove event while event participants still reference it.");
+        }
+
+        if (Claims.Any(claim => claim.TargetKind == ClaimTargetKind.Event && claim.TargetId == eventId))
+        {
+            throw new InvalidOperationException("Cannot remove event while claims still reference it.");
+        }
+
         if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Event && link.TargetId == eventId))
         {
             throw new InvalidOperationException("Cannot remove event while evidence assessments still reference it.");
@@ -216,6 +315,85 @@ public sealed record AnalysisWorkspace(
         {
             UpdatedAtUtc = DateTimeOffset.UtcNow,
             Events = Events.Where(@event => @event.Id != eventId).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace RemoveEventParticipant(Guid participantId)
+    {
+        if (participantId == Guid.Empty)
+        {
+            throw new ArgumentException("Event participant id is required.", nameof(participantId));
+        }
+
+        if (!EventParticipants.Any(participant => participant.Id == participantId))
+        {
+            throw new InvalidOperationException($"Event participant '{participantId}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            EventParticipants = EventParticipants.Where(participant => participant.Id != participantId).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace AddClaim(Claim claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        ValidateClaimReferences(claim);
+
+        if (Claims.Any(existing => existing.Id == claim.Id))
+        {
+            throw new InvalidOperationException($"Claim '{claim.Id}' already exists in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Claims = Claims.Concat([claim]).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace UpdateClaim(Claim claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+
+        ValidateClaimReferences(claim);
+
+        if (!Claims.Any(existing => existing.Id == claim.Id))
+        {
+            throw new InvalidOperationException($"Claim '{claim.Id}' does not exist in the workspace.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Claims = Claims.Select(existing => existing.Id == claim.Id ? claim : existing).ToArray()
+        };
+    }
+
+    public AnalysisWorkspace RemoveClaim(Guid claimId)
+    {
+        if (claimId == Guid.Empty)
+        {
+            throw new ArgumentException("Claim id is required.", nameof(claimId));
+        }
+
+        if (!Claims.Any(claim => claim.Id == claimId))
+        {
+            throw new InvalidOperationException($"Claim '{claimId}' does not exist in the workspace.");
+        }
+
+        if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Claim && link.TargetId == claimId))
+        {
+            throw new InvalidOperationException("Cannot remove claim while evidence assessments still reference it.");
+        }
+
+        return this with
+        {
+            UpdatedAtUtc = DateTimeOffset.UtcNow,
+            Claims = Claims.Where(claim => claim.Id != claimId).ToArray()
         };
     }
 
@@ -261,6 +439,11 @@ public sealed record AnalysisWorkspace(
         if (!Hypotheses.Any(hypothesis => hypothesis.Id == hypothesisId))
         {
             throw new InvalidOperationException($"Hypothesis '{hypothesisId}' does not exist in the workspace.");
+        }
+
+        if (Claims.Any(claim => claim.HypothesisId == hypothesisId || claim.TargetKind == ClaimTargetKind.Hypothesis && claim.TargetId == hypothesisId))
+        {
+            throw new InvalidOperationException("Cannot remove hypothesis while claims still reference it.");
         }
 
         if (EvidenceLinks.Any(link => link.TargetKind == EvidenceLinkTargetKind.Hypothesis && link.TargetId == hypothesisId))
@@ -390,12 +573,25 @@ public sealed record AnalysisWorkspace(
             }
         }
 
+        foreach (var participant in EventParticipants)
+        {
+            if (!entityIds.Contains(participant.EntityId) || !Events.Any(@event => @event.Id == participant.EventId))
+            {
+                throw new InvalidOperationException("Workspace contains an event participant that references a missing event or entity.");
+            }
+        }
+
         foreach (var hypothesis in Hypotheses)
         {
             if (string.IsNullOrWhiteSpace(hypothesis.Title) || string.IsNullOrWhiteSpace(hypothesis.Statement))
             {
                 throw new InvalidOperationException("Workspace contains a hypothesis with missing required fields.");
             }
+        }
+
+        foreach (var claim in Claims)
+        {
+            ValidateClaimReferences(claim);
         }
 
         foreach (var evidenceLink in EvidenceLinks)
@@ -409,9 +605,38 @@ public sealed record AnalysisWorkspace(
             Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes.Trim(),
             Tags = DomainValidation.NormalizeTags(Tags),
             UpdatedAtUtc = UpdatedAtUtc == default ? CreatedAtUtc : UpdatedAtUtc,
+            EventParticipants = EventParticipants.ToArray(),
+            Claims = Claims.ToArray(),
             Hypotheses = Hypotheses.ToArray(),
             EvidenceLinks = EvidenceLinks.ToArray()
         };
+    }
+
+    private void ValidateClaimReferences(Claim claim)
+    {
+        if (claim.HypothesisId is not null && !Hypotheses.Any(hypothesis => hypothesis.Id == claim.HypothesisId))
+        {
+            throw new InvalidOperationException("Claim hypothesis reference must exist in the workspace.");
+        }
+
+        if (claim.TargetKind is null && claim.TargetId is null)
+        {
+            return;
+        }
+
+        var targetExists = claim.TargetKind switch
+        {
+            ClaimTargetKind.Entity => Entities.Any(entity => entity.Id == claim.TargetId),
+            ClaimTargetKind.Relationship => Relationships.Any(relationship => relationship.Id == claim.TargetId),
+            ClaimTargetKind.Event => Events.Any(@event => @event.Id == claim.TargetId),
+            ClaimTargetKind.Hypothesis => Hypotheses.Any(hypothesis => hypothesis.Id == claim.TargetId),
+            _ => false
+        };
+
+        if (!targetExists)
+        {
+            throw new InvalidOperationException($"Claim target '{claim.TargetId}' does not exist for target kind '{claim.TargetKind}'.");
+        }
     }
 
     private void ValidateEvidenceLinkReferences(EvidenceLink evidenceLink)
@@ -427,6 +652,7 @@ public sealed record AnalysisWorkspace(
             EvidenceLinkTargetKind.Relationship => Relationships.Any(relationship => relationship.Id == evidenceLink.TargetId),
             EvidenceLinkTargetKind.Event => Events.Any(@event => @event.Id == evidenceLink.TargetId),
             EvidenceLinkTargetKind.Hypothesis => Hypotheses.Any(hypothesis => hypothesis.Id == evidenceLink.TargetId),
+            EvidenceLinkTargetKind.Claim => Claims.Any(claim => claim.Id == evidenceLink.TargetId),
             _ => false
         };
 

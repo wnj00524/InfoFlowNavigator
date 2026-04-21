@@ -20,115 +20,124 @@ public sealed class PlainTextReportGenerator : IReportGenerator
         var analysis = await _analysisService.SummarizeAsync(workspace, cancellationToken);
 
         var builder = new StringBuilder()
-            .AppendLine($"Workspace: {workspace.Name}")
-            .AppendLine($"Created (UTC): {workspace.CreatedAtUtc:O}")
-            .AppendLine($"Updated (UTC): {workspace.UpdatedAtUtc:O}")
-            .AppendLine($"Entities: {analysis.EntityCount}")
-            .AppendLine($"Relationships: {analysis.RelationshipCount}")
-            .AppendLine($"Events: {analysis.EventCount}")
-            .AppendLine($"Hypotheses: {analysis.HypothesisCount}")
-            .AppendLine($"Evidence: {analysis.EvidenceCount}")
-            .AppendLine($"Evidence Assessments: {analysis.EvidenceLinkCount}")
+            .AppendLine($"Workspace Briefing: {workspace.Name}")
             .AppendLine()
-            .AppendLine("Findings:");
+            .AppendLine("Workspace Summary")
+            .AppendLine($"- Created (UTC): {workspace.CreatedAtUtc:O}")
+            .AppendLine($"- Updated (UTC): {workspace.UpdatedAtUtc:O}")
+            .AppendLine($"- Entities: {analysis.EntityCount}")
+            .AppendLine($"- Relationships: {analysis.RelationshipCount}")
+            .AppendLine($"- Events: {analysis.EventCount}")
+            .AppendLine($"- Event Participants: {analysis.EventParticipantCount}")
+            .AppendLine($"- Claims: {analysis.ClaimCount}")
+            .AppendLine($"- Hypotheses: {analysis.HypothesisCount}")
+            .AppendLine($"- Evidence: {analysis.EvidenceCount}")
+            .AppendLine($"- Evidence Assessments: {analysis.EvidenceLinkCount}");
 
-        AppendFindings(builder, analysis.Findings);
-        builder.AppendLine().AppendLine("Hypothesis Inference:");
+        AppendLines(builder, "Key Entities",
+            analysis.TopConnectedEntities.Select(item => $"{item.Name} ({item.EntityType}) has {item.Degree} relationship links.")
+                .Concat(analysis.TopEventParticipants.Select(item => $"{item.Name} appears in {item.EventCount} recorded events."))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(6));
 
-        if (analysis.HypothesisSummaries.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var summary in analysis.HypothesisSummaries)
-            {
-                builder.AppendLine($"- {summary.Title} [{summary.Posture}]");
-                builder.AppendLine($"  Status: {summary.Status}");
-                builder.AppendLine($"  Support: {summary.SupportCount} (weighted {summary.SupportWeight:0.##})");
-                builder.AppendLine($"  Contradiction: {summary.ContradictionCount} (weighted {summary.ContradictionWeight:0.##})");
-                builder.AppendLine($"  Explanation: {summary.Explanation}");
-            }
-        }
-
-        builder.AppendLine().AppendLine("Collection Guidance:");
-
-        if (analysis.CollectionGuidance.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var guidance in analysis.CollectionGuidance)
-            {
-                builder.AppendLine($"- {guidance.Title}: {guidance.Detail}");
-            }
-        }
-
-        builder.AppendLine().AppendLine("Hypotheses:");
-
-        if (workspace.Hypotheses.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var hypothesis in workspace.Hypotheses.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase))
-            {
-                builder.AppendLine($"- {hypothesis.Title} [{hypothesis.Status}]");
-                builder.AppendLine($"  Statement: {hypothesis.Statement}");
-
-                if (!string.IsNullOrWhiteSpace(hypothesis.Notes))
+        AppendLines(builder, "Key Events",
+            workspace.Events
+                .OrderBy(@event => @event.OccurredAtUtc ?? DateTimeOffset.MaxValue)
+                .ThenBy(@event => @event.Title, StringComparer.OrdinalIgnoreCase)
+                .Take(6)
+                .Select(@event =>
                 {
-                    builder.AppendLine($"  Notes: {hypothesis.Notes}");
-                }
-            }
-        }
+                    var participationGap = analysis.EventParticipationGaps.FirstOrDefault(item => item.EventId == @event.Id);
+                    var supportGap = analysis.EventsWithoutSupportingEvidence.Any(item => item.EventId == @event.Id)
+                        ? "support gap"
+                        : "supported";
+                    var participantNote = participationGap is null
+                        ? "participant coverage present"
+                        : participationGap.Detail;
+                    return $"{FormatEventLabel(@event.Title, @event.OccurredAtUtc)} [{supportGap}] - {participantNote}";
+                }));
 
-        builder.AppendLine().AppendLine("Evidence Assessments:");
+        AppendLines(builder, "Active Hypotheses",
+            analysis.HypothesisSummaries
+                .Where(item => item.Status == Domain.Hypotheses.HypothesisStatus.Active)
+                .Select(item => $"{item.Title} [{item.Posture}] support {item.SupportWeight:0.##} vs contradiction {item.ContradictionWeight:0.##}."));
 
-        if (workspace.EvidenceLinks.Count == 0)
-        {
-            builder.AppendLine("- None");
-        }
-        else
-        {
-            foreach (var link in workspace.EvidenceLinks.OrderBy(link => link.TargetKind).ThenBy(link => link.TargetId).ThenBy(link => link.EvidenceId))
-            {
-                var evidenceTitle = workspace.Evidence.FirstOrDefault(evidence => evidence.Id == link.EvidenceId)?.Title ?? link.EvidenceId.ToString();
-                builder.AppendLine($"- {link.TargetKind} {link.TargetId}: {evidenceTitle}");
-                builder.AppendLine($"  Relation: {link.RelationToTarget}");
-                builder.AppendLine($"  Strength: {link.Strength}");
-
-                if (!string.IsNullOrWhiteSpace(link.Notes))
+        AppendLines(builder, "Key Claims",
+            workspace.Claims
+                .OrderByDescending(claim => claim.Status == Domain.Claims.ClaimStatus.Active)
+                .ThenByDescending(claim => claim.Confidence ?? 0d)
+                .ThenBy(claim => claim.Statement, StringComparer.OrdinalIgnoreCase)
+                .Take(8)
+                .Select(claim =>
                 {
-                    builder.AppendLine($"  Notes: {link.Notes}");
-                }
+                    var unsupported = analysis.UnsupportedClaims.Any(item => item.ClaimId == claim.Id);
+                    var contradictory = analysis.ContradictoryClaims.FirstOrDefault(item => item.ClaimId == claim.Id);
+                    var posture = contradictory is not null
+                        ? $"contradicted by {contradictory.ContradictionCount}"
+                        : unsupported
+                            ? "unsupported"
+                            : "supported/contextual";
+                    return $"{claim.Statement} [{claim.Status}, {claim.ClaimType}] - {posture}.";
+                }));
 
-                if (link.Confidence is not null)
-                {
-                    builder.AppendLine($"  Confidence: {link.Confidence:0.###}");
-                }
-            }
+        AppendLines(builder, "Strongest Support",
+            analysis.HypothesisSummaries
+                .SelectMany(summary => summary.SupportingEvidence.Take(2).Select(item => $"{summary.Title}: {item.EvidenceTitle} ({item.Weight:0.##})"))
+                .Concat(analysis.Findings
+                    .Where(item => item.Category == FindingCategory.Participation || item.Category == FindingCategory.Workspace)
+                    .Take(2)
+                    .Select(item => $"{item.Title}: {item.Detail}"))
+                .Take(6));
+
+        AppendLines(builder, "Strongest Contradictions",
+            analysis.ContradictoryClaims.Select(item => $"{item.Statement}: {item.ContradictionCount} contradictory assessments.")
+                .Concat(analysis.HypothesisConflicts.Select(item => $"{item.Title}: {item.Detail}"))
+                .Take(6));
+
+        AppendLines(builder, "Collection Priorities / Next Steps",
+            analysis.Findings
+                .Where(item => item.Severity != FindingSeverity.Info || item.Category == FindingCategory.Collection)
+                .Take(8)
+                .Select(item => string.IsNullOrWhiteSpace(item.RecommendedAction)
+                    ? $"{item.Title}: {item.Detail}"
+                    : $"{item.Title}: {item.RecommendedAction}"));
+
+        if (analysis.NetworkExportReadinessIssues.Count > 0)
+        {
+            AppendLines(builder, "Network Export Note",
+                analysis.NetworkExportReadinessIssues.Select(item => $"{item.Title}: {item.Detail}"));
         }
 
         return new ReportArtifact(
-            "workspace-summary.txt",
+            "workspace-briefing.txt",
             "text/plain",
             builder.ToString());
     }
 
-    private static void AppendFindings(StringBuilder builder, IReadOnlyList<AnalysisFinding> findings)
+    private static string FormatEventLabel(string title, DateTimeOffset? occurredAtUtc) =>
+        occurredAtUtc is null
+            ? title
+            : $"{occurredAtUtc:yyyy-MM-dd} {title}";
+
+    private static void AppendLines(StringBuilder builder, string title, IEnumerable<string> lines)
     {
-        if (findings.Count == 0)
+        builder.AppendLine()
+            .AppendLine(title);
+
+        var entries = lines
+            .Where(line => !string.IsNullOrWhiteSpace(line))
+            .Take(8)
+            .ToArray();
+
+        if (entries.Length == 0)
         {
-            builder.AppendLine("- No findings generated.");
+            builder.AppendLine("- None");
             return;
         }
 
-        foreach (var finding in findings)
+        foreach (var line in entries)
         {
-            builder.AppendLine($"- {finding.Title}: {finding.Detail}");
+            builder.AppendLine($"- {line}");
         }
     }
 }
