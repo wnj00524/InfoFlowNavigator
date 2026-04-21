@@ -814,6 +814,17 @@
                        VerticalContentAlignment="Top" />
               <TextBlock Classes="label" Text="Confidence" />
               <TextBox Text="{Binding Events.EventConfidenceText}" PlaceholderText="0.0 to 1.0" />
+              <Border Background="#FFF8E8" BorderBrush="#F0D58A" BorderThickness="1" CornerRadius="12" Padding="12">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                  <Button Content="{Binding Events.PrimaryActionLabel}"
+                          Command="{Binding Events.SaveEventCommand}" />
+                  <Button Grid.Column="1"
+                          Classes="danger"
+                          Content="Delete Event"
+                          Command="{Binding Events.DeleteEventCommand}"
+                          IsEnabled="{Binding Events.IsEditingExistingItem}" />
+                </Grid>
+              </Border>
               <TextBlock Classes="label" Text="Linked Evidence" />
               <TextBlock Classes="muted"
                          IsVisible="{Binding Events.NoSelection}"
@@ -863,19 +874,6 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="Add Event"
-                        Command="{Binding Events.SaveEventCommand}"
-                        IsVisible="{Binding Events.NoSelection}" />
-                <Button Content="Save Event"
-                        Command="{Binding Events.SaveEventCommand}"
-                        IsVisible="{Binding Events.IsEditingExistingItem}" />
-                <Button Grid.Column="1"
-                        Classes="danger"
-                        Content="Delete Event"
-                        Command="{Binding Events.DeleteEventCommand}"
-                        IsEnabled="{Binding Events.IsEditingExistingItem}" />
-              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="14" IsVisible="{Binding IsClaimsMode}">
@@ -935,6 +933,17 @@
                        Height="88"
                        TextWrapping="Wrap"
                        VerticalContentAlignment="Top" />
+              <Border Background="#FFF8E8" BorderBrush="#F0D58A" BorderThickness="1" CornerRadius="12" Padding="12">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                  <Button Content="{Binding Claims.PrimaryActionLabel}"
+                          Command="{Binding Claims.SaveClaimCommand}" />
+                  <Button Grid.Column="1"
+                          Classes="danger"
+                          Content="Delete Claim"
+                          Command="{Binding Claims.DeleteClaimCommand}"
+                          IsEnabled="{Binding Claims.IsEditingExistingItem}" />
+                </Grid>
+              </Border>
               <TextBlock Classes="label" Text="Linked Evidence" />
               <ItemsControl ItemsSource="{Binding Claims.LinkedEvidence}">
                 <ItemsControl.ItemTemplate>
@@ -948,19 +957,6 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="Add Claim"
-                        Command="{Binding Claims.SaveClaimCommand}"
-                        IsVisible="{Binding Claims.NoSelection}" />
-                <Button Content="Save Claim"
-                        Command="{Binding Claims.SaveClaimCommand}"
-                        IsVisible="{Binding Claims.IsEditingExistingItem}" />
-                <Button Grid.Column="1"
-                        Classes="danger"
-                        Content="Delete Claim"
-                        Command="{Binding Claims.DeleteClaimCommand}"
-                        IsEnabled="{Binding Claims.IsEditingExistingItem}" />
-              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="14" IsVisible="{Binding IsHypothesesMode}">
@@ -991,6 +987,17 @@
                        Height="88"
                        TextWrapping="Wrap"
                        VerticalContentAlignment="Top" />
+              <Border Background="#FFF8E8" BorderBrush="#F0D58A" BorderThickness="1" CornerRadius="12" Padding="12">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                  <Button Content="{Binding Hypotheses.PrimaryActionLabel}"
+                          Command="{Binding Hypotheses.SaveHypothesisCommand}" />
+                  <Button Grid.Column="1"
+                          Classes="danger"
+                          Content="Delete Hypothesis"
+                          Command="{Binding Hypotheses.DeleteHypothesisCommand}"
+                          IsEnabled="{Binding Hypotheses.IsEditingExistingItem}" />
+                </Grid>
+              </Border>
               <Border Background="#F8FBFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="10" Padding="12">
                 <StackPanel Spacing="6">
                   <TextBlock FontWeight="SemiBold" Text="{Binding Hypotheses.Posture}" />
@@ -1023,19 +1030,6 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="Add Hypothesis"
-                        Command="{Binding Hypotheses.SaveHypothesisCommand}"
-                        IsVisible="{Binding Hypotheses.NoSelection}" />
-                <Button Content="Save Hypothesis"
-                        Command="{Binding Hypotheses.SaveHypothesisCommand}"
-                        IsVisible="{Binding Hypotheses.IsEditingExistingItem}" />
-                <Button Grid.Column="1"
-                        Classes="danger"
-                        Content="Delete Hypothesis"
-                        Command="{Binding Hypotheses.DeleteHypothesisCommand}"
-                        IsEnabled="{Binding Hypotheses.IsEditingExistingItem}" />
-              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="14" IsVisible="{Binding IsEvidenceMode}">
