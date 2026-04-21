@@ -66,6 +66,23 @@ public sealed class EditorWorkflowViewModelTests
     }
 
     [Fact]
+    public void HypothesisValidation_RequiresTitleAndStatement()
+    {
+        var viewModel = new HypothesesViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
+
+        Assert.False(viewModel.CanSaveHypothesis);
+        Assert.Equal("Hypothesis title and statement are required.", viewModel.HypothesisValidationMessage);
+
+        viewModel.Title = "Attendance";
+        Assert.False(viewModel.CanSaveHypothesis);
+        Assert.Equal("Hypothesis statement is required.", viewModel.HypothesisValidationMessage);
+
+        viewModel.Statement = "Alice attended the meeting.";
+        Assert.True(viewModel.CanSaveHypothesis);
+        Assert.False(viewModel.ShowHypothesisValidationMessage);
+    }
+
+    [Fact]
     public void BeginNewEvidence_ClearsEditorState()
     {
         var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
@@ -177,6 +194,52 @@ public sealed class EditorWorkflowViewModelTests
         viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", parsed, "Notes", 0.7);
 
         Assert.Equal("21/04/26 14:30", viewModel.EventOccurredAtText);
+    }
+
+    [Fact]
+    public void ParticipantPrimaryActionLabel_SwitchesBetweenAddAndSave()
+    {
+        var entityId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+        var viewModel = new EventsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
+        viewModel.Refresh([new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, null, null)], null);
+        viewModel.SelectedEvent = viewModel.Events[0];
+        viewModel.UpdateParticipants(
+            [new EventParticipantSummaryViewModel(participantId, entityId, "Alice (Person)", "attendee", 0.8, null)],
+            [new EntityOptionViewModel(entityId, "Alice (Person)")]);
+
+        Assert.Equal("Add Participant", viewModel.ParticipantPrimaryActionLabel);
+        Assert.False(viewModel.CanRemoveParticipant);
+
+        viewModel.SelectedParticipant = viewModel.Participants[0];
+
+        Assert.True(viewModel.IsEditingParticipant);
+        Assert.Equal("Save Participant", viewModel.ParticipantPrimaryActionLabel);
+        Assert.True(viewModel.CanRemoveParticipant);
+    }
+
+    [Fact]
+    public void ParticipantValidation_RequiresEventEntityAndRole()
+    {
+        var eventId = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
+        var viewModel = new EventsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
+
+        Assert.False(viewModel.CanSaveParticipant);
+        Assert.Equal("Select an event first.", viewModel.ParticipantValidationMessage);
+
+        viewModel.Refresh([new EventSummaryViewModel(eventId, "Meeting", DateTimeOffset.UtcNow, null, null)], eventId);
+        viewModel.UpdateParticipants([], [new EntityOptionViewModel(entityId, "Alice (Person)")]);
+        Assert.False(viewModel.CanSaveParticipant);
+        Assert.Equal("Select a participant.", viewModel.ParticipantValidationMessage);
+
+        viewModel.SelectedParticipantEntity = viewModel.ParticipantEntities[0];
+        Assert.False(viewModel.CanSaveParticipant);
+        Assert.Equal("Participant role is required.", viewModel.ParticipantValidationMessage);
+
+        viewModel.ParticipantRole = "attendee";
+        Assert.True(viewModel.CanSaveParticipant);
+        Assert.False(viewModel.ShowParticipantValidationMessage);
     }
 
     [Fact]

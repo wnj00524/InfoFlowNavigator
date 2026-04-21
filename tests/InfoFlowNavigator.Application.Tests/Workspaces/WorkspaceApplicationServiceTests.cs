@@ -263,6 +263,30 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
+    public void SaveHypothesis_WithEmptyTitle_IsBlocked()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Hypotheses.Statement = "Alice attended the meeting.";
+
+        viewModel.Hypotheses.SaveHypothesisCommand.Execute(null);
+
+        Assert.Empty(viewModel.Workspace.Hypotheses);
+        Assert.Equal("Hypothesis title and statement are required.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void SaveHypothesis_WithEmptyStatement_IsBlocked()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Hypotheses.Title = "Attendance";
+
+        viewModel.Hypotheses.SaveHypothesisCommand.Execute(null);
+
+        Assert.Empty(viewModel.Workspace.Hypotheses);
+        Assert.Equal("Hypothesis title and statement are required.", viewModel.StatusMessage);
+    }
+
+    [Fact]
     public void SaveEvidence_WithNoSelection_AddsAndSelectsCreatedEvidence()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
@@ -354,6 +378,59 @@ public sealed class WorkspaceApplicationServiceTests
 
         Assert.Equal(EventOccurredAtFormatting.ValidationMessage, viewModel.StatusMessage);
         Assert.Empty(viewModel.Workspace.Events);
+    }
+
+    [Fact]
+    public void AddEventParticipant_WithNoSelectedEntity_IsBlocked()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+        viewModel.Events.SaveEventCommand.Execute(null);
+
+        viewModel.Events.ParticipantRole = "attendee";
+        viewModel.Events.AddParticipantCommand.Execute(null);
+
+        Assert.Empty(viewModel.Workspace.EventParticipants);
+        Assert.Equal("Select a participant.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void AddEventParticipant_WithEmptyRole_IsBlocked()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+        viewModel.Events.SaveEventCommand.Execute(null);
+        viewModel.Events.SelectedParticipantEntity = viewModel.Events.ParticipantEntities[0];
+
+        viewModel.Events.AddParticipantCommand.Execute(null);
+
+        Assert.Empty(viewModel.Workspace.EventParticipants);
+        Assert.Equal("Participant role is required.", viewModel.StatusMessage);
+    }
+
+    [Fact]
+    public void AddEventParticipant_WithValidInputs_Succeeds()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+        viewModel.Events.SaveEventCommand.Execute(null);
+        viewModel.Events.SelectedParticipantEntity = viewModel.Events.ParticipantEntities[0];
+        viewModel.Events.ParticipantRole = "attendee";
+
+        viewModel.Events.AddParticipantCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.EventParticipants);
+        Assert.Equal("Added event participant.", viewModel.StatusMessage);
+        Assert.Single(viewModel.Events.Participants);
     }
 
     private static WorkspaceShellViewModel CreateShellViewModel(
