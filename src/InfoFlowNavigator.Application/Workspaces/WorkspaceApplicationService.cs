@@ -1,4 +1,5 @@
 using InfoFlowNavigator.Application.Abstractions;
+using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.Entities;
 using WorkspaceEvidence = InfoFlowNavigator.Domain.Evidence.Evidence;
 using InfoFlowNavigator.Domain.Events;
@@ -94,6 +95,20 @@ public sealed class WorkspaceApplicationService
         return workspace.AddEvent(@event);
     }
 
+    public AnalysisWorkspace AddEventParticipant(
+        AnalysisWorkspace workspace,
+        Guid eventId,
+        Guid entityId,
+        string role,
+        double? confidence = null,
+        string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var participant = EventParticipant.Create(eventId, entityId, role, confidence, notes);
+        return workspace.AddEventParticipant(participant);
+    }
+
     public AnalysisWorkspace UpdateEvent(
         AnalysisWorkspace workspace,
         Guid eventId,
@@ -114,6 +129,119 @@ public sealed class WorkspaceApplicationService
     {
         ArgumentNullException.ThrowIfNull(workspace);
         return workspace.RemoveEvent(eventId);
+    }
+
+    public AnalysisWorkspace UpdateEventParticipant(
+        AnalysisWorkspace workspace,
+        Guid participantId,
+        string role,
+        double? confidence = null,
+        string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var existing = workspace.EventParticipants.FirstOrDefault(participant => participant.Id == participantId)
+            ?? throw new InvalidOperationException($"Event participant '{participantId}' does not exist in the workspace.");
+
+        return workspace.UpdateEventParticipant(existing.Update(role, confidence, notes));
+    }
+
+    public AnalysisWorkspace RemoveEventParticipant(AnalysisWorkspace workspace, Guid participantId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        return workspace.RemoveEventParticipant(participantId);
+    }
+
+    public IReadOnlyList<EventParticipant> GetParticipantsForEvent(AnalysisWorkspace workspace, Guid eventId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        return workspace.EventParticipants
+            .Where(participant => participant.EventId == eventId)
+            .OrderBy(participant => participant.Role, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(participant => participant.EntityId)
+            .ToArray();
+    }
+
+    public IReadOnlyList<Event> GetEventsForEntity(AnalysisWorkspace workspace, Guid entityId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var eventIds = workspace.EventParticipants
+            .Where(participant => participant.EntityId == entityId)
+            .Select(participant => participant.EventId)
+            .ToHashSet();
+
+        return workspace.Events
+            .Where(@event => eventIds.Contains(@event.Id))
+            .OrderBy(@event => @event.OccurredAtUtc ?? DateTimeOffset.MaxValue)
+            .ThenBy(@event => @event.Title, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    public AnalysisWorkspace AddClaim(
+        AnalysisWorkspace workspace,
+        string statement,
+        ClaimType claimType = ClaimType.General,
+        ClaimStatus status = ClaimStatus.Draft,
+        double? confidence = null,
+        string? notes = null,
+        ClaimTargetKind? targetKind = null,
+        Guid? targetId = null,
+        Guid? hypothesisId = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var claim = Claim.Create(statement, claimType, status, confidence, notes, null, null, targetKind, targetId, hypothesisId);
+        return workspace.AddClaim(claim);
+    }
+
+    public AnalysisWorkspace UpdateClaim(
+        AnalysisWorkspace workspace,
+        Guid claimId,
+        string statement,
+        ClaimType claimType,
+        ClaimStatus status,
+        double? confidence = null,
+        string? notes = null,
+        ClaimTargetKind? targetKind = null,
+        Guid? targetId = null,
+        Guid? hypothesisId = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var existing = workspace.Claims.FirstOrDefault(claim => claim.Id == claimId)
+            ?? throw new InvalidOperationException($"Claim '{claimId}' does not exist in the workspace.");
+
+        return workspace.UpdateClaim(existing.Update(statement, claimType, status, confidence, notes, existing.Tags, existing.Metadata, targetKind, targetId, hypothesisId));
+    }
+
+    public AnalysisWorkspace RemoveClaim(AnalysisWorkspace workspace, Guid claimId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+        return workspace.RemoveClaim(claimId);
+    }
+
+    public IReadOnlyList<Claim> GetClaimsByTarget(AnalysisWorkspace workspace, ClaimTargetKind targetKind, Guid targetId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        return workspace.Claims
+            .Where(claim => claim.TargetKind == targetKind && claim.TargetId == targetId)
+            .OrderBy(claim => claim.Statement, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(claim => claim.Id)
+            .ToArray();
+    }
+
+    public IReadOnlyList<Claim> GetClaimsByHypothesis(AnalysisWorkspace workspace, Guid hypothesisId)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        return workspace.Claims
+            .Where(claim => claim.HypothesisId == hypothesisId)
+            .OrderBy(claim => claim.Statement, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(claim => claim.Id)
+            .ToArray();
     }
 
     public AnalysisWorkspace AddHypothesis(

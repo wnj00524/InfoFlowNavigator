@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Application.Workspaces;
+using InfoFlowNavigator.Domain.Claims;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.Domain.Workspaces;
@@ -13,17 +15,26 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 {
     private readonly WorkspaceApplicationService _workspaceService;
     private readonly IAnalysisService _analysisService;
+    private readonly IReportGenerator _reportGenerator;
+    private readonly IWorkspaceExportService _workspaceExportService;
     private AnalysisWorkspace _workspace;
     private WorkspaceAnalysisResult _analysis;
     private string _workspaceName = string.Empty;
     private string _workspacePath = "workspace.ifn.json";
     private string _statusMessage;
     private WorkbenchSectionItemViewModel? _selectedSection;
+    private string? _lastNetworkExportPath;
 
-    public WorkspaceShellViewModel(WorkspaceApplicationService workspaceService, IAnalysisService analysisService)
+    public WorkspaceShellViewModel(
+        WorkspaceApplicationService workspaceService,
+        IAnalysisService analysisService,
+        IReportGenerator reportGenerator,
+        IWorkspaceExportService workspaceExportService)
     {
         _workspaceService = workspaceService;
         _analysisService = analysisService;
+        _reportGenerator = reportGenerator;
+        _workspaceExportService = workspaceExportService;
         _workspace = workspaceService.CreateWorkspace("Untitled Workspace");
         _analysis = _analysisService.SummarizeAsync(_workspace).GetAwaiter().GetResult();
         _statusMessage = "Create or open a workspace to begin.";
@@ -34,6 +45,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new(WorkbenchSection.Entities, "Entities", "People, organizations, and assets", "EN"),
             new(WorkbenchSection.Relationships, "Relationships", "How subjects are connected", "RE"),
             new(WorkbenchSection.Events, "Events", "Observed activity and chronology", "EV"),
+            new(WorkbenchSection.Claims, "Claims", "First-class assertions and support", "CL"),
             new(WorkbenchSection.Hypotheses, "Hypotheses", "Competing explanations and inference", "HY"),
             new(WorkbenchSection.Evidence, "Evidence", "Sources and structured assessments", "ED"),
             new(WorkbenchSection.Findings, "Findings", "Explainable analysis guidance", "FI")
@@ -42,11 +54,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         NewWorkspaceCommand = new RelayCommand(() => ExecuteSafely(CreateNewWorkspace));
         OpenWorkspaceCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(OpenWorkspaceAsync));
         SaveWorkspaceCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(SaveWorkspaceAsync));
+        ExportBriefingCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(ExportBriefingAsync));
+        ExportNetworkCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(ExportNetworkAsync));
 
         ShowOverviewCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Overview));
         ShowEntitiesCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Entities));
         ShowRelationshipsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Relationships));
         ShowEventsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Events));
+        ShowClaimsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Claims));
         ShowHypothesesCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Hypotheses));
         ShowEvidenceCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Evidence));
         ShowFindingsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Findings));
@@ -65,7 +80,18 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new RelayCommand(() => ExecuteSafely(BeginNewEvent)),
             new RelayCommand(() => ExecuteSafely(SaveEvent)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedEvent)),
-            _ => RefreshEventLinkedEvidence());
+            new RelayCommand(() => ExecuteSafely(AddEventParticipant)),
+            new RelayCommand(() => ExecuteSafely(DeleteSelectedEventParticipant)),
+            _ =>
+            {
+                RefreshEventLinkedEvidence();
+                RefreshEventParticipants();
+            });
+        Claims = new ClaimsViewModel(
+            new RelayCommand(() => ExecuteSafely(BeginNewClaim)),
+            new RelayCommand(() => ExecuteSafely(SaveClaim)),
+            new RelayCommand(() => ExecuteSafely(DeleteSelectedClaim)),
+            _ => RefreshClaimLinkedEvidence());
         Hypotheses = new HypothesesViewModel(
             new RelayCommand(() => ExecuteSafely(SaveHypothesis)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedHypothesis)),
@@ -114,6 +140,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 OnPropertyChanged(nameof(WorkspaceEntityCount));
                 OnPropertyChanged(nameof(WorkspaceRelationshipCount));
                 OnPropertyChanged(nameof(WorkspaceEventCount));
+                OnPropertyChanged(nameof(WorkspaceParticipantCount));
+                OnPropertyChanged(nameof(WorkspaceClaimCount));
                 OnPropertyChanged(nameof(WorkspaceHypothesisCount));
                 OnPropertyChanged(nameof(WorkspaceEvidenceCount));
                 OnPropertyChanged(nameof(WorkspaceEvidenceLinkCount));
@@ -127,6 +155,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public int WorkspaceEntityCount => Workspace.Entities.Count;
     public int WorkspaceRelationshipCount => Workspace.Relationships.Count;
     public int WorkspaceEventCount => Workspace.Events.Count;
+    public int WorkspaceParticipantCount => Workspace.EventParticipants.Count;
+    public int WorkspaceClaimCount => Workspace.Claims.Count;
     public int WorkspaceHypothesisCount => Workspace.Hypotheses.Count;
     public int WorkspaceEvidenceCount => Workspace.Evidence.Count;
     public int WorkspaceEvidenceLinkCount => Workspace.EvidenceLinks.Count;
@@ -149,6 +179,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsEntitiesMode));
                 OnPropertyChanged(nameof(IsRelationshipsMode));
                 OnPropertyChanged(nameof(IsEventsMode));
+                OnPropertyChanged(nameof(IsClaimsMode));
                 OnPropertyChanged(nameof(IsHypothesesMode));
                 OnPropertyChanged(nameof(IsEvidenceMode));
                 OnPropertyChanged(nameof(IsFindingsMode));
@@ -162,6 +193,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public bool IsEntitiesMode => SelectedSection?.Section == WorkbenchSection.Entities;
     public bool IsRelationshipsMode => SelectedSection?.Section == WorkbenchSection.Relationships;
     public bool IsEventsMode => SelectedSection?.Section == WorkbenchSection.Events;
+    public bool IsClaimsMode => SelectedSection?.Section == WorkbenchSection.Claims;
     public bool IsHypothesesMode => SelectedSection?.Section == WorkbenchSection.Hypotheses;
     public bool IsEvidenceMode => SelectedSection?.Section == WorkbenchSection.Evidence;
     public bool IsFindingsMode => SelectedSection?.Section == WorkbenchSection.Findings;
@@ -170,6 +202,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public EntitiesViewModel Entities { get; }
     public RelationshipsViewModel Relationships { get; }
     public EventsViewModel Events { get; }
+    public ClaimsViewModel Claims { get; }
     public HypothesesViewModel Hypotheses { get; }
     public EvidenceViewModel Evidence { get; }
     public FindingsViewModel Findings { get; }
@@ -177,10 +210,13 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public RelayCommand NewWorkspaceCommand { get; }
     public AsyncRelayCommand OpenWorkspaceCommand { get; }
     public AsyncRelayCommand SaveWorkspaceCommand { get; }
+    public AsyncRelayCommand ExportBriefingCommand { get; }
+    public AsyncRelayCommand ExportNetworkCommand { get; }
     public RelayCommand ShowOverviewCommand { get; }
     public RelayCommand ShowEntitiesCommand { get; }
     public RelayCommand ShowRelationshipsCommand { get; }
     public RelayCommand ShowEventsCommand { get; }
+    public RelayCommand ShowClaimsCommand { get; }
     public RelayCommand ShowHypothesesCommand { get; }
     public RelayCommand ShowEvidenceCommand { get; }
     public RelayCommand ShowFindingsCommand { get; }
@@ -199,6 +235,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private void CreateNewWorkspace()
     {
         var name = string.IsNullOrWhiteSpace(WorkspaceName) ? "Untitled Workspace" : WorkspaceName;
+        _lastNetworkExportPath = null;
         SetWorkspace(_workspaceService.CreateWorkspace(name));
         StatusMessage = "Created a new workspace.";
     }
@@ -206,6 +243,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private async Task OpenWorkspaceAsync()
     {
         EnsurePathProvided();
+        _lastNetworkExportPath = null;
         SetWorkspace(await _workspaceService.OpenAsync(WorkspacePath.Trim()));
         StatusMessage = $"Opened workspace from '{WorkspacePath}'.";
     }
@@ -216,6 +254,30 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         SetWorkspace(_workspaceService.RenameWorkspace(Workspace, WorkspaceName));
         await _workspaceService.SaveAsync(WorkspacePath.Trim(), Workspace);
         StatusMessage = $"Saved workspace to '{WorkspacePath}'.";
+    }
+
+    private async Task ExportBriefingAsync()
+    {
+        EnsurePathProvided();
+        var artifact = await _reportGenerator.GenerateAsync(Workspace);
+        var outputPath = BuildSiblingArtifactPath(".briefing.txt");
+        var content = artifact.Content;
+        if (!string.IsNullOrWhiteSpace(_lastNetworkExportPath))
+        {
+            content += $"{Environment.NewLine}Network Export Note{Environment.NewLine}- Last network export: {_lastNetworkExportPath}{Environment.NewLine}";
+        }
+
+        await File.WriteAllTextAsync(outputPath, content);
+        StatusMessage = $"Exported analyst briefing to '{outputPath}'.";
+    }
+
+    private async Task ExportNetworkAsync()
+    {
+        EnsurePathProvided();
+        var outputPath = BuildSiblingArtifactPath(".network.json");
+        await _workspaceExportService.ExportAsync(Workspace, outputPath);
+        _lastNetworkExportPath = outputPath;
+        StatusMessage = $"Exported MedWNetwork-compatible network JSON to '{outputPath}'.";
     }
 
     private void AddEntity()
@@ -303,6 +365,111 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var title = Events.SelectedEvent.Title;
         SetWorkspace(_workspaceService.RemoveEvent(Workspace, Events.SelectedEvent.Id));
         StatusMessage = $"Deleted event '{title}'.";
+    }
+
+    private void AddEventParticipant()
+    {
+        if (Events.SelectedEvent is null)
+        {
+            throw new InvalidOperationException("Select an event first.");
+        }
+
+        if (Events.SelectedParticipantEntity is null)
+        {
+            throw new InvalidOperationException("Select an entity for the participant row.");
+        }
+
+        var confidence = ParseOptionalConfidence(Events.ParticipantConfidenceText, "Participant confidence");
+        if (Events.SelectedParticipant is null)
+        {
+            SetWorkspace(_workspaceService.AddEventParticipant(
+                Workspace,
+                Events.SelectedEvent.Id,
+                Events.SelectedParticipantEntity.Id,
+                Events.ParticipantRole,
+                confidence,
+                Events.ParticipantNotes));
+            Events.ClearParticipantEditor();
+            StatusMessage = "Added event participant.";
+            return;
+        }
+
+        SetWorkspace(_workspaceService.UpdateEventParticipant(
+            Workspace,
+            Events.SelectedParticipant.Id,
+            Events.ParticipantRole,
+            confidence,
+            Events.ParticipantNotes));
+        StatusMessage = "Updated event participant.";
+    }
+
+    private void DeleteSelectedEventParticipant()
+    {
+        if (Events.SelectedParticipant is null)
+        {
+            throw new InvalidOperationException("Select an event participant to remove.");
+        }
+
+        SetWorkspace(_workspaceService.RemoveEventParticipant(Workspace, Events.SelectedParticipant.Id));
+        Events.ClearParticipantEditor();
+        StatusMessage = "Removed event participant.";
+    }
+
+    private void BeginNewClaim()
+    {
+        Claims.BeginNewClaim();
+        StatusMessage = "Ready to add a new claim.";
+    }
+
+    private void SaveClaim()
+    {
+        var confidence = ParseOptionalConfidence(Claims.ConfidenceText, "Claim confidence");
+        var claimType = Claims.SelectedClaimType?.ClaimType ?? ClaimType.General;
+        var claimStatus = Claims.SelectedClaimStatus?.Status ?? ClaimStatus.Draft;
+        var targetKind = Claims.SelectedTargetKind?.Kind;
+        var targetId = Claims.SelectedTarget?.Id;
+        var hypothesisId = Claims.SelectedHypothesis?.Id;
+
+        if (Claims.SelectedClaim is null)
+        {
+            SetWorkspace(_workspaceService.AddClaim(
+                Workspace,
+                Claims.Statement,
+                claimType,
+                claimStatus,
+                confidence,
+                Claims.Notes,
+                targetKind,
+                targetId,
+                hypothesisId));
+            StatusMessage = "Added claim to the workspace.";
+            return;
+        }
+
+        SetWorkspace(_workspaceService.UpdateClaim(
+            Workspace,
+            Claims.SelectedClaim.Id,
+            Claims.Statement,
+            claimType,
+            claimStatus,
+            confidence,
+            Claims.Notes,
+            targetKind,
+            targetId,
+            hypothesisId));
+        StatusMessage = "Updated selected claim.";
+    }
+
+    private void DeleteSelectedClaim()
+    {
+        if (Claims.SelectedClaim is null)
+        {
+            throw new InvalidOperationException("Select a claim to delete.");
+        }
+
+        var statement = Claims.SelectedClaim.Statement;
+        SetWorkspace(_workspaceService.RemoveClaim(Workspace, Claims.SelectedClaim.Id));
+        StatusMessage = $"Deleted claim '{statement}'.";
     }
 
     private void SaveHypothesis()
@@ -408,6 +575,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var selectedEntityId = Entities.SelectedEntity?.Id;
         var selectedRelationshipId = Relationships.SelectedRelationship?.Id;
         var selectedEventId = Events.SelectedEvent?.Id;
+        var selectedClaimId = Claims.SelectedClaim?.Id;
         var selectedHypothesisId = Hypotheses.SelectedHypothesis?.Id;
         var selectedEvidenceId = Evidence.SelectedEvidence?.Id;
         var selectedLinkId = Evidence.SelectedLink?.Id;
@@ -445,6 +613,21 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             .Select(@event => new EventSummaryViewModel(@event.Id, @event.Title, @event.OccurredAtUtc, @event.Notes, @event.Confidence))
             .ToArray();
 
+        var claimItems = Workspace.Claims
+            .OrderByDescending(claim => claim.Status == ClaimStatus.Active)
+            .ThenBy(claim => claim.Statement, StringComparer.OrdinalIgnoreCase)
+            .Select(claim => new ClaimSummaryViewModel(
+                claim.Id,
+                claim.Statement,
+                claim.ClaimType,
+                claim.Status,
+                claim.Confidence,
+                claim.Notes,
+                claim.TargetKind,
+                claim.TargetId,
+                claim.HypothesisId))
+            .ToArray();
+
         var hypothesisItems = Workspace.Hypotheses
             .OrderBy(hypothesis => hypothesis.Title, StringComparer.OrdinalIgnoreCase)
             .Select(hypothesis => new HypothesisSummaryViewModel(hypothesis.Id, hypothesis.Title, hypothesis.Statement, hypothesis.Status, hypothesis.Confidence, hypothesis.Notes))
@@ -458,19 +641,25 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         Entities.Refresh(entityItems, selectedEntityId);
         Relationships.Refresh(relationshipItems, entityOptions, selectedRelationshipId, selectedSourceId, selectedTargetId);
         Events.Refresh(eventItems, selectedEventId);
+        Claims.Refresh(claimItems, BuildClaimTargetOptions(Claims.SelectedTargetKind?.Kind), hypothesisItems, selectedClaimId);
         Hypotheses.Refresh(hypothesisItems, selectedHypothesisId);
         Evidence.Refresh(evidenceItems, selectedEvidenceId, BuildEvidenceLinkSummaries(selectedEvidenceId), CreateTargetKindOptions(), BuildTargetOptions(targetKind), selectedLinkId);
 
         RefreshEntityLinkedEvidence();
         RefreshRelationshipLinkedEvidence();
         RefreshEventLinkedEvidence();
+        RefreshEventParticipants();
+        RefreshClaimLinkedEvidence();
         RefreshHypothesisEvidence();
         RefreshEvidenceAssessmentsForSelection();
         RefreshEvidenceTargets(targetKind);
+        Claims.UpdateTargets(BuildClaimTargetOptions(Claims.SelectedTargetKind?.Kind));
 
         OnPropertyChanged(nameof(WorkspaceEntityCount));
         OnPropertyChanged(nameof(WorkspaceRelationshipCount));
         OnPropertyChanged(nameof(WorkspaceEventCount));
+        OnPropertyChanged(nameof(WorkspaceParticipantCount));
+        OnPropertyChanged(nameof(WorkspaceClaimCount));
         OnPropertyChanged(nameof(WorkspaceHypothesisCount));
         OnPropertyChanged(nameof(WorkspaceEvidenceCount));
         OnPropertyChanged(nameof(WorkspaceEvidenceLinkCount));
@@ -490,6 +679,32 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         Events.UpdateLinkedEvidence(Events.SelectedEvent is null
             ? []
             : BuildLinkedEvidence(_workspaceService.GetLinkedEvidenceByTarget(Workspace, EvidenceLinkTargetKind.Event, Events.SelectedEvent.Id)));
+
+    private void RefreshEventParticipants()
+    {
+        if (Events.SelectedEvent is null)
+        {
+            Events.UpdateParticipants([], BuildEntityOptions());
+            return;
+        }
+
+        Events.UpdateParticipants(
+            _workspaceService.GetParticipantsForEvent(Workspace, Events.SelectedEvent.Id)
+                .Select(participant => new EventParticipantSummaryViewModel(
+                    participant.Id,
+                    participant.EntityId,
+                    ResolveEntityDisplayName(participant.EntityId),
+                    participant.Role,
+                    participant.Confidence,
+                    participant.Notes))
+                .ToArray(),
+            BuildEntityOptions());
+    }
+
+    private void RefreshClaimLinkedEvidence() =>
+        Claims.UpdateLinkedEvidence(Claims.SelectedClaim is null
+            ? []
+            : BuildLinkedEvidence(_workspaceService.GetLinkedEvidenceByTarget(Workspace, EvidenceLinkTargetKind.Claim, Claims.SelectedClaim.Id)));
 
     private void RefreshHypothesisEvidence()
     {
@@ -584,19 +799,58 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 .OrderBy(hypothesis => hypothesis.Title, StringComparer.OrdinalIgnoreCase)
                 .Select(hypothesis => new TargetOptionViewModel(hypothesis.Id, hypothesis.Title))
                 .ToArray(),
+            EvidenceLinkTargetKind.Claim => Workspace.Claims
+                .OrderBy(claim => claim.Statement, StringComparer.OrdinalIgnoreCase)
+                .Select(claim => new TargetOptionViewModel(claim.Id, claim.Statement))
+                .ToArray(),
             _ => []
         };
+
+    private IReadOnlyList<TargetOptionViewModel> BuildClaimTargetOptions(ClaimTargetKind? targetKind) =>
+        targetKind switch
+        {
+            ClaimTargetKind.Entity => Workspace.Entities
+                .OrderBy(entity => entity.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(entity => new TargetOptionViewModel(entity.Id, $"{entity.Name} ({entity.EntityType})"))
+                .ToArray(),
+            ClaimTargetKind.Relationship => Workspace.Relationships
+                .Select(relationship => new TargetOptionViewModel(
+                    relationship.Id,
+                    $"{ResolveEntityName(relationship.SourceEntityId)} -> {relationship.RelationshipType} -> {ResolveEntityName(relationship.TargetEntityId)}"))
+                .OrderBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToArray(),
+            ClaimTargetKind.Event => Workspace.Events
+                .OrderBy(@event => @event.OccurredAtUtc ?? DateTimeOffset.MaxValue)
+                .ThenBy(@event => @event.Title, StringComparer.OrdinalIgnoreCase)
+                .Select(@event => new TargetOptionViewModel(@event.Id, @event.Title))
+                .ToArray(),
+            ClaimTargetKind.Hypothesis => Workspace.Hypotheses
+                .OrderBy(hypothesis => hypothesis.Title, StringComparer.OrdinalIgnoreCase)
+                .Select(hypothesis => new TargetOptionViewModel(hypothesis.Id, hypothesis.Title))
+                .ToArray(),
+            _ => []
+        };
+
+    private IReadOnlyList<EntityOptionViewModel> BuildEntityOptions() =>
+        Workspace.Entities
+            .OrderBy(entity => entity.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entity => new EntityOptionViewModel(entity.Id, $"{entity.Name} ({entity.EntityType})"))
+            .ToArray();
 
     private static IReadOnlyList<EvidenceLinkTargetKindOptionViewModel> CreateTargetKindOptions() =>
     [
         new(EvidenceLinkTargetKind.Entity, "Entity"),
         new(EvidenceLinkTargetKind.Relationship, "Relationship"),
         new(EvidenceLinkTargetKind.Event, "Event"),
-        new(EvidenceLinkTargetKind.Hypothesis, "Hypothesis")
+        new(EvidenceLinkTargetKind.Hypothesis, "Hypothesis"),
+        new(EvidenceLinkTargetKind.Claim, "Claim")
     ];
 
     private string ResolveEntityName(Guid entityId) =>
         Workspace.Entities.FirstOrDefault(entity => entity.Id == entityId)?.Name ?? entityId.ToString();
+
+    private string ResolveEntityDisplayName(Guid entityId) =>
+        Workspace.Entities.FirstOrDefault(entity => entity.Id == entityId)?.DisplayName() ?? entityId.ToString();
 
     private string ResolveTargetDisplay(EvidenceLinkTargetKind targetKind, Guid targetId) =>
         targetKind switch
@@ -608,8 +862,22 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 .FirstOrDefault() ?? targetId.ToString(),
             EvidenceLinkTargetKind.Event => Workspace.Events.FirstOrDefault(@event => @event.Id == targetId)?.Title ?? targetId.ToString(),
             EvidenceLinkTargetKind.Hypothesis => Workspace.Hypotheses.FirstOrDefault(hypothesis => hypothesis.Id == targetId)?.Title ?? targetId.ToString(),
+            EvidenceLinkTargetKind.Claim => Workspace.Claims.FirstOrDefault(claim => claim.Id == targetId)?.Statement ?? targetId.ToString(),
             _ => targetId.ToString()
         };
+
+    private string BuildSiblingArtifactPath(string suffix)
+    {
+        var path = WorkspacePath.Trim();
+        var directory = Path.GetDirectoryName(path);
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(path);
+        var resolvedFileName = string.IsNullOrWhiteSpace(fileNameWithoutExtension)
+            ? $"{Workspace.Name}{suffix}"
+            : $"{fileNameWithoutExtension}{suffix}";
+        return string.IsNullOrWhiteSpace(directory)
+            ? resolvedFileName
+            : Path.Combine(directory, resolvedFileName);
+    }
 
     private static double? ParseOptionalConfidence(string text, string fieldName)
     {
