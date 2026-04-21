@@ -30,7 +30,15 @@ public sealed record EntitySummaryViewModel(Guid Id, string Name, string EntityT
 
 public sealed record EntityOptionViewModel(Guid Id, string DisplayName);
 
-public sealed record RelationshipSummaryViewModel(Guid Id, string SourceName, string TargetName, string RelationshipType, string? Notes, double? Confidence)
+public sealed record RelationshipSummaryViewModel(
+    Guid Id,
+    Guid SourceEntityId,
+    Guid TargetEntityId,
+    string SourceName,
+    string TargetName,
+    string RelationshipType,
+    string? Notes,
+    double? Confidence)
 {
     public string DisplayName => $"{SourceName} -> {RelationshipType} -> {TargetName}";
 }
@@ -110,8 +118,10 @@ public sealed record EvidenceStrengthOptionViewModel(EvidenceStrength Strength, 
 
 public sealed record EvidenceLinkSummaryViewModel(
     Guid Id,
+    Guid EvidenceId,
     string EvidenceTitle,
     EvidenceLinkTargetKind TargetKind,
+    Guid TargetId,
     string TargetDisplayName,
     EvidenceRelationToTarget RelationToTarget,
     EvidenceStrength Strength,

@@ -17,10 +17,11 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private readonly IAnalysisService _analysisService;
     private readonly IReportGenerator _reportGenerator;
     private readonly IWorkspaceExportService _workspaceExportService;
+    private readonly IWorkspaceFileDialogService _workspaceFileDialogService;
     private AnalysisWorkspace _workspace;
     private WorkspaceAnalysisResult _analysis;
     private string _workspaceName = string.Empty;
-    private string _workspacePath = "workspace.ifn.json";
+    private string _workspacePath = string.Empty;
     private string _statusMessage;
     private WorkbenchSectionItemViewModel? _selectedSection;
     private string? _lastNetworkExportPath;
@@ -29,12 +30,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         WorkspaceApplicationService workspaceService,
         IAnalysisService analysisService,
         IReportGenerator reportGenerator,
-        IWorkspaceExportService workspaceExportService)
+        IWorkspaceExportService workspaceExportService,
+        IWorkspaceFileDialogService workspaceFileDialogService)
     {
         _workspaceService = workspaceService;
         _analysisService = analysisService;
         _reportGenerator = reportGenerator;
         _workspaceExportService = workspaceExportService;
+        _workspaceFileDialogService = workspaceFileDialogService;
         _workspace = workspaceService.CreateWorkspace("Untitled Workspace");
         _analysis = _analysisService.SummarizeAsync(_workspace).GetAwaiter().GetResult();
         _statusMessage = "Create or open a workspace to begin.";
@@ -73,7 +76,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new RelayCommand(() => ExecuteSafely(DeleteSelectedEntity)),
             _ => RefreshEntityLinkedEvidence());
         Relationships = new RelationshipsViewModel(
-            new RelayCommand(() => ExecuteSafely(AddRelationship)),
+            new RelayCommand(() => ExecuteSafely(SaveRelationship)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedRelationship)),
             _ => RefreshRelationshipLinkedEvidence());
         Events = new EventsViewModel(
@@ -93,13 +96,15 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new RelayCommand(() => ExecuteSafely(DeleteSelectedClaim)),
             _ => RefreshClaimLinkedEvidence());
         Hypotheses = new HypothesesViewModel(
+            new RelayCommand(() => ExecuteSafely(BeginNewHypothesis)),
             new RelayCommand(() => ExecuteSafely(SaveHypothesis)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedHypothesis)),
             _ => RefreshHypothesisEvidence());
         Evidence = new EvidenceViewModel(
+            new RelayCommand(() => ExecuteSafely(BeginNewEvidence)),
             new RelayCommand(() => ExecuteSafely(SaveEvidence)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedEvidence)),
-            new RelayCommand(() => ExecuteSafely(AddEvidenceAssessment)),
+            new RelayCommand(() => ExecuteSafely(SaveEvidenceAssessment)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedEvidenceAssessment)),
             _ => RefreshEvidenceAssessmentsForSelection(),
             kind => RefreshEvidenceTargets(kind));
@@ -121,8 +126,16 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public string WorkspacePath
     {
         get => _workspacePath;
-        set => SetProperty(ref _workspacePath, value);
+        set
+        {
+            if (SetProperty(ref _workspacePath, value))
+            {
+                OnPropertyChanged(nameof(WorkspacePathDisplay));
+            }
+        }
     }
+
+    public string WorkspacePathDisplay => string.IsNullOrWhiteSpace(WorkspacePath) ? "No workspace file selected." : WorkspacePath;
 
     public string StatusMessage
     {
@@ -236,29 +249,51 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     {
         var name = string.IsNullOrWhiteSpace(WorkspaceName) ? "Untitled Workspace" : WorkspaceName;
         _lastNetworkExportPath = null;
+        WorkspacePath = string.Empty;
         SetWorkspace(_workspaceService.CreateWorkspace(name));
         StatusMessage = "Created a new workspace.";
     }
 
     private async Task OpenWorkspaceAsync()
     {
-        EnsurePathProvided();
+        var selectedPath = await _workspaceFileDialogService.PickOpenWorkspacePathAsync();
+        if (string.IsNullOrWhiteSpace(selectedPath))
+        {
+            StatusMessage = "Open workspace canceled.";
+            return;
+        }
+
         _lastNetworkExportPath = null;
+        WorkspacePath = selectedPath;
         SetWorkspace(await _workspaceService.OpenAsync(WorkspacePath.Trim()));
         StatusMessage = $"Opened workspace from '{WorkspacePath}'.";
     }
 
     private async Task SaveWorkspaceAsync()
     {
-        EnsurePathProvided();
+        var savePath = await EnsureWorkspacePathForSaveAsync();
+        if (string.IsNullOrWhiteSpace(savePath))
+        {
+            StatusMessage = "Save workspace canceled.";
+            return;
+        }
+
         SetWorkspace(_workspaceService.RenameWorkspace(Workspace, WorkspaceName));
+        WorkspacePath = savePath;
         await _workspaceService.SaveAsync(WorkspacePath.Trim(), Workspace);
         StatusMessage = $"Saved workspace to '{WorkspacePath}'.";
     }
 
     private async Task ExportBriefingAsync()
     {
-        EnsurePathProvided();
+        var savePath = await EnsureWorkspacePathForSaveAsync();
+        if (string.IsNullOrWhiteSpace(savePath))
+        {
+            StatusMessage = "Briefing export canceled.";
+            return;
+        }
+
+        WorkspacePath = savePath;
         var artifact = await _reportGenerator.GenerateAsync(Workspace);
         var outputPath = BuildSiblingArtifactPath(".briefing.txt");
         var content = artifact.Content;
@@ -273,7 +308,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
     private async Task ExportNetworkAsync()
     {
-        EnsurePathProvided();
+        var savePath = await EnsureWorkspacePathForSaveAsync();
+        if (string.IsNullOrWhiteSpace(savePath))
+        {
+            StatusMessage = "Network export canceled.";
+            return;
+        }
+
+        WorkspacePath = savePath;
         var outputPath = BuildSiblingArtifactPath(".network.json");
         await _workspaceExportService.ExportAsync(Workspace, outputPath);
         _lastNetworkExportPath = outputPath;
@@ -311,15 +353,37 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         StatusMessage = $"Deleted entity '{name}'.";
     }
 
-    private void AddRelationship()
+    private void SaveRelationship()
     {
         if (Relationships.SelectedSource is null || Relationships.SelectedTarget is null)
         {
             throw new InvalidOperationException("Select both source and target entities.");
         }
 
-        SetWorkspace(_workspaceService.AddRelationship(Workspace, Relationships.SelectedSource.Id, Relationships.SelectedTarget.Id, Relationships.RelationshipType));
-        StatusMessage = "Added relationship to the workspace.";
+        var confidence = ParseOptionalConfidence(Relationships.RelationshipConfidenceText, "Relationship confidence");
+
+        if (Relationships.SelectedRelationship is null)
+        {
+            SetWorkspace(_workspaceService.AddRelationship(
+                Workspace,
+                Relationships.SelectedSource.Id,
+                Relationships.SelectedTarget.Id,
+                Relationships.RelationshipType,
+                Relationships.RelationshipNotes,
+                confidence));
+            StatusMessage = "Added relationship to the workspace.";
+            return;
+        }
+
+        SetWorkspace(_workspaceService.UpdateRelationship(
+            Workspace,
+            Relationships.SelectedRelationship.Id,
+            Relationships.SelectedSource.Id,
+            Relationships.SelectedTarget.Id,
+            Relationships.RelationshipType,
+            Relationships.RelationshipNotes,
+            confidence));
+        StatusMessage = "Updated selected relationship.";
     }
 
     private void DeleteSelectedRelationship()
@@ -330,6 +394,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
 
         SetWorkspace(_workspaceService.RemoveRelationship(Workspace, Relationships.SelectedRelationship.Id));
+        Relationships.BeginNewRelationship();
         StatusMessage = "Deleted selected relationship.";
     }
 
@@ -338,11 +403,19 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var confidence = ParseOptionalConfidence(Events.EventConfidenceText, "Event confidence");
         var occurredAtUtc = ParseOptionalDateTimeOffset(Events.EventOccurredAtText, "Event occurred time");
 
+        if (!Events.IsEditingExistingItem)
+        {
+            var updatedWorkspace = _workspaceService.AddEvent(Workspace, Events.EventTitle, occurredAtUtc, Events.EventNotes, confidence);
+            var createdEventId = FindAddedId(Workspace.Events.Select(item => item.Id), updatedWorkspace.Events.Select(item => item.Id));
+            SetWorkspace(updatedWorkspace);
+            SelectEvent(createdEventId);
+            StatusMessage = "Added event.";
+            return;
+        }
+
         if (Events.SelectedEvent is null)
         {
-            SetWorkspace(_workspaceService.AddEvent(Workspace, Events.EventTitle, occurredAtUtc, Events.EventNotes, confidence));
-            StatusMessage = "Added event to the workspace.";
-            return;
+            throw new InvalidOperationException("Select an event to update or click New Event to add one.");
         }
 
         SetWorkspace(_workspaceService.UpdateEvent(Workspace, Events.SelectedEvent.Id, Events.EventTitle, occurredAtUtc, Events.EventNotes, confidence));
@@ -430,9 +503,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var targetId = Claims.SelectedTarget?.Id;
         var hypothesisId = Claims.SelectedHypothesis?.Id;
 
-        if (Claims.SelectedClaim is null)
+        if (!Claims.IsEditingExistingItem)
         {
-            SetWorkspace(_workspaceService.AddClaim(
+            var updatedWorkspace = _workspaceService.AddClaim(
                 Workspace,
                 Claims.Statement,
                 claimType,
@@ -441,9 +514,17 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 Claims.Notes,
                 targetKind,
                 targetId,
-                hypothesisId));
-            StatusMessage = "Added claim to the workspace.";
+                hypothesisId);
+            var createdClaimId = FindAddedId(Workspace.Claims.Select(item => item.Id), updatedWorkspace.Claims.Select(item => item.Id));
+            SetWorkspace(updatedWorkspace);
+            SelectClaim(createdClaimId);
+            StatusMessage = "Added claim.";
             return;
+        }
+
+        if (Claims.SelectedClaim is null)
+        {
+            throw new InvalidOperationException("Select a claim to update or click New Claim to add one.");
         }
 
         SetWorkspace(_workspaceService.UpdateClaim(
@@ -458,6 +539,12 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             targetId,
             hypothesisId));
         StatusMessage = "Updated selected claim.";
+    }
+
+    private void BeginNewHypothesis()
+    {
+        Hypotheses.BeginNewHypothesis();
+        StatusMessage = "Ready to add a new hypothesis.";
     }
 
     private void DeleteSelectedClaim()
@@ -477,11 +564,19 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var confidence = ParseOptionalConfidence(Hypotheses.ConfidenceText, "Hypothesis confidence");
         var status = Hypotheses.SelectedStatus?.Status ?? HypothesisStatus.Draft;
 
+        if (!Hypotheses.IsEditingExistingItem)
+        {
+            var updatedWorkspace = _workspaceService.AddHypothesis(Workspace, Hypotheses.Title, Hypotheses.Statement, status, confidence, Hypotheses.Notes);
+            var createdHypothesisId = FindAddedId(Workspace.Hypotheses.Select(item => item.Id), updatedWorkspace.Hypotheses.Select(item => item.Id));
+            SetWorkspace(updatedWorkspace);
+            SelectHypothesis(createdHypothesisId);
+            StatusMessage = "Added hypothesis.";
+            return;
+        }
+
         if (Hypotheses.SelectedHypothesis is null)
         {
-            SetWorkspace(_workspaceService.AddHypothesis(Workspace, Hypotheses.Title, Hypotheses.Statement, status, confidence, Hypotheses.Notes));
-            StatusMessage = "Added hypothesis to the workspace.";
-            return;
+            throw new InvalidOperationException("Select a hypothesis to update or click New Hypothesis to add one.");
         }
 
         SetWorkspace(_workspaceService.UpdateHypothesis(Workspace, Hypotheses.SelectedHypothesis.Id, Hypotheses.Title, Hypotheses.Statement, status, confidence, Hypotheses.Notes));
@@ -500,15 +595,29 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         StatusMessage = $"Deleted hypothesis '{title}'.";
     }
 
+    private void BeginNewEvidence()
+    {
+        Evidence.BeginNewEvidence();
+        StatusMessage = "Ready to add new evidence.";
+    }
+
     private void SaveEvidence()
     {
         var confidence = ParseOptionalConfidence(Evidence.EvidenceConfidenceText, "Evidence confidence");
 
+        if (!Evidence.IsEditingExistingItem)
+        {
+            var updatedWorkspace = _workspaceService.AddEvidence(Workspace, Evidence.EvidenceTitle, Evidence.EvidenceCitation, Evidence.EvidenceNotes, confidence);
+            var createdEvidenceId = FindAddedId(Workspace.Evidence.Select(item => item.Id), updatedWorkspace.Evidence.Select(item => item.Id));
+            SetWorkspace(updatedWorkspace);
+            SelectEvidence(createdEvidenceId);
+            StatusMessage = "Added evidence.";
+            return;
+        }
+
         if (Evidence.SelectedEvidence is null)
         {
-            SetWorkspace(_workspaceService.AddEvidence(Workspace, Evidence.EvidenceTitle, Evidence.EvidenceCitation, Evidence.EvidenceNotes, confidence));
-            StatusMessage = "Added evidence to the workspace.";
-            return;
+            throw new InvalidOperationException("Select evidence to update or click New Evidence to add new evidence.");
         }
 
         SetWorkspace(_workspaceService.UpdateEvidence(Workspace, Evidence.SelectedEvidence.Id, Evidence.EvidenceTitle, Evidence.EvidenceCitation, Evidence.EvidenceNotes, confidence));
@@ -527,7 +636,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         StatusMessage = $"Deleted evidence '{title}'.";
     }
 
-    private void AddEvidenceAssessment()
+    private void SaveEvidenceAssessment()
     {
         if (Evidence.SelectedEvidence is null)
         {
@@ -540,8 +649,24 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
 
         var confidence = ParseOptionalConfidence(Evidence.LinkConfidenceText, "Evidence assessment confidence");
-        SetWorkspace(_workspaceService.AddEvidenceAssessment(
+        if (Evidence.SelectedLink is null)
+        {
+            SetWorkspace(_workspaceService.AddEvidenceAssessment(
+                Workspace,
+                Evidence.SelectedEvidence.Id,
+                Evidence.SelectedTargetKind.Kind,
+                Evidence.SelectedTarget.Id,
+                Evidence.SelectedRelation.Relation,
+                Evidence.SelectedStrength.Strength,
+                Evidence.LinkNotes,
+                confidence));
+            StatusMessage = "Added evidence assessment.";
+            return;
+        }
+
+        SetWorkspace(_workspaceService.UpdateEvidenceAssessment(
             Workspace,
+            Evidence.SelectedLink.Id,
             Evidence.SelectedEvidence.Id,
             Evidence.SelectedTargetKind.Kind,
             Evidence.SelectedTarget.Id,
@@ -549,7 +674,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             Evidence.SelectedStrength.Strength,
             Evidence.LinkNotes,
             confidence));
-        StatusMessage = "Added evidence assessment.";
+        StatusMessage = "Updated selected evidence assessment.";
     }
 
     private void DeleteSelectedEvidenceAssessment()
@@ -560,6 +685,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
 
         SetWorkspace(_workspaceService.RemoveEvidenceAssessment(Workspace, Evidence.SelectedLink.Id));
+        Evidence.BeginNewAssessment();
         StatusMessage = "Deleted selected evidence assessment.";
     }
 
@@ -569,6 +695,18 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         WorkspaceName = workspace.Name;
         RefreshWorkspaceState();
     }
+
+    private void SelectEvent(Guid id) =>
+        Events.SelectedEvent = Events.Events.FirstOrDefault(item => item.Id == id);
+
+    private void SelectClaim(Guid id) =>
+        Claims.SelectedClaim = Claims.Claims.FirstOrDefault(item => item.Id == id);
+
+    private void SelectHypothesis(Guid id) =>
+        Hypotheses.SelectedHypothesis = Hypotheses.Hypotheses.FirstOrDefault(item => item.Id == id);
+
+    private void SelectEvidence(Guid id) =>
+        Evidence.SelectedEvidence = Evidence.EvidenceItems.FirstOrDefault(item => item.Id == id);
 
     private void RefreshWorkspaceState()
     {
@@ -581,7 +719,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var selectedLinkId = Evidence.SelectedLink?.Id;
         var selectedSourceId = Relationships.SelectedSource?.Id;
         var selectedTargetId = Relationships.SelectedTarget?.Id;
-        var targetKind = Evidence.SelectedTargetKind?.Kind ?? EvidenceLinkTargetKind.Entity;
+        var selectedLink = selectedLinkId is null ? null : Workspace.EvidenceLinks.FirstOrDefault(link => link.Id == selectedLinkId);
+        var targetKind = selectedLink?.TargetKind ?? Evidence.SelectedTargetKind?.Kind ?? EvidenceLinkTargetKind.Entity;
 
         _analysis = _analysisService.SummarizeAsync(Workspace).GetAwaiter().GetResult();
 
@@ -601,6 +740,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var relationshipItems = Workspace.Relationships
             .Select(relationship => new RelationshipSummaryViewModel(
                 relationship.Id,
+                relationship.SourceEntityId,
+                relationship.TargetEntityId,
                 ResolveEntityName(relationship.SourceEntityId),
                 ResolveEntityName(relationship.TargetEntityId),
                 relationship.RelationshipType,
@@ -767,8 +908,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             .ThenBy(link => link.TargetId)
             .Select(link => new EvidenceLinkSummaryViewModel(
                 link.Id,
+                link.EvidenceId,
                 Workspace.Evidence.First(evidence => evidence.Id == link.EvidenceId).Title,
                 link.TargetKind,
+                link.TargetId,
                 ResolveTargetDisplay(link.TargetKind, link.TargetId),
                 link.RelationToTarget,
                 link.Strength,
@@ -909,12 +1052,38 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         return value.ToUniversalTime();
     }
 
-    private void EnsurePathProvided()
+    private async Task<string?> EnsureWorkspacePathForSaveAsync()
     {
-        if (string.IsNullOrWhiteSpace(WorkspacePath))
+        if (!string.IsNullOrWhiteSpace(WorkspacePath))
         {
-            throw new InvalidOperationException("Workspace path is required.");
+            return WorkspacePath.Trim();
         }
+
+        var suggestedFileName = BuildWorkspaceFileName();
+        var selectedPath = await _workspaceFileDialogService.PickSaveWorkspacePathAsync(suggestedFileName);
+        return string.IsNullOrWhiteSpace(selectedPath) ? null : selectedPath.Trim();
+    }
+
+    private string BuildWorkspaceFileName()
+    {
+        var baseName = string.IsNullOrWhiteSpace(WorkspaceName) ? "workspace" : WorkspaceName.Trim();
+        foreach (var invalidCharacter in Path.GetInvalidFileNameChars())
+        {
+            baseName = baseName.Replace(invalidCharacter, '_');
+        }
+
+        if (!baseName.EndsWith(".ifn.json", StringComparison.OrdinalIgnoreCase))
+        {
+            baseName += ".ifn.json";
+        }
+
+        return baseName;
+    }
+
+    private static Guid FindAddedId(IEnumerable<Guid> existingIds, IEnumerable<Guid> updatedIds)
+    {
+        var existing = existingIds.ToHashSet();
+        return updatedIds.First(id => !existing.Contains(id));
     }
 
     private void ExecuteSafely(Action action)

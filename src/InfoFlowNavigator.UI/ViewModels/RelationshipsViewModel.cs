@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows.Input;
 
 namespace InfoFlowNavigator.UI.ViewModels;
@@ -6,17 +7,20 @@ namespace InfoFlowNavigator.UI.ViewModels;
 public sealed class RelationshipsViewModel : ViewModelBase
 {
     private readonly Action<RelationshipSummaryViewModel?> _selectionChanged;
+    private bool _isPopulatingEditor;
     private EntityOptionViewModel? _selectedSource;
     private EntityOptionViewModel? _selectedTarget;
     private string _relationshipType = "associated_with";
+    private string _relationshipNotes = string.Empty;
+    private string _relationshipConfidenceText = string.Empty;
     private RelationshipSummaryViewModel? _selectedRelationship;
 
     public RelationshipsViewModel(
-        ICommand addRelationshipCommand,
+        ICommand saveRelationshipCommand,
         ICommand deleteRelationshipCommand,
         Action<RelationshipSummaryViewModel?> selectionChanged)
     {
-        AddRelationshipCommand = addRelationshipCommand;
+        SaveRelationshipCommand = saveRelationshipCommand;
         DeleteRelationshipCommand = deleteRelationshipCommand;
         _selectionChanged = selectionChanged;
     }
@@ -27,7 +31,7 @@ public sealed class RelationshipsViewModel : ViewModelBase
 
     public ObservableCollection<LinkedEvidenceSummaryViewModel> LinkedEvidence { get; } = [];
 
-    public ICommand AddRelationshipCommand { get; }
+    public ICommand SaveRelationshipCommand { get; }
 
     public ICommand DeleteRelationshipCommand { get; }
 
@@ -49,6 +53,18 @@ public sealed class RelationshipsViewModel : ViewModelBase
         set => SetProperty(ref _relationshipType, value);
     }
 
+    public string RelationshipNotes
+    {
+        get => _relationshipNotes;
+        set => SetProperty(ref _relationshipNotes, value);
+    }
+
+    public string RelationshipConfidenceText
+    {
+        get => _relationshipConfidenceText;
+        set => SetProperty(ref _relationshipConfidenceText, value);
+    }
+
     public RelationshipSummaryViewModel? SelectedRelationship
     {
         get => _selectedRelationship;
@@ -56,11 +72,13 @@ public sealed class RelationshipsViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedRelationship, value))
             {
+                PopulateEditor(value);
                 _selectionChanged(value);
                 OnPropertyChanged(nameof(HasSelection));
                 OnPropertyChanged(nameof(NoSelection));
                 OnPropertyChanged(nameof(InspectorTitle));
                 OnPropertyChanged(nameof(InspectorHint));
+                OnPropertyChanged(nameof(PrimaryActionLabel));
             }
         }
     }
@@ -71,11 +89,13 @@ public sealed class RelationshipsViewModel : ViewModelBase
 
     public bool IsEmpty => Relationships.Count == 0;
 
-    public string InspectorTitle => SelectedRelationship is null ? "Relationship Inspector" : "Relationship Detail";
+    public string InspectorTitle => SelectedRelationship is null ? "Relationship Editor" : "Edit Relationship";
 
     public string InspectorHint => SelectedRelationship is null
-        ? "Select a relationship to review its support."
+        ? "Capture the connection between two entities, then review linked evidence here."
         : SelectedRelationship.DisplayName;
+
+    public string PrimaryActionLabel => SelectedRelationship is null ? "Add Relationship" : "Update Relationship";
 
     public void Refresh(
         IReadOnlyList<RelationshipSummaryViewModel> relationships,
@@ -87,15 +107,95 @@ public sealed class RelationshipsViewModel : ViewModelBase
         ReplaceCollection(Relationships, relationships);
         ReplaceCollection(EntityOptions, entityOptions);
 
-        SelectedSource = selectedSourceId is null ? EntityOptions.FirstOrDefault() : EntityOptions.FirstOrDefault(item => item.Id == selectedSourceId) ?? EntityOptions.FirstOrDefault();
-        SelectedTarget = selectedTargetId is null ? EntityOptions.FirstOrDefault() : EntityOptions.FirstOrDefault(item => item.Id == selectedTargetId) ?? EntityOptions.FirstOrDefault();
-        SelectedRelationship = selectedRelationshipId is null ? null : Relationships.FirstOrDefault(relationship => relationship.Id == selectedRelationshipId);
+        _isPopulatingEditor = true;
+        try
+        {
+            SelectedRelationship = selectedRelationshipId is null
+                ? null
+                : Relationships.FirstOrDefault(relationship => relationship.Id == selectedRelationshipId);
+
+            if (SelectedRelationship is null)
+            {
+                SelectedSource = ResolveEntityOption(selectedSourceId);
+                SelectedTarget = ResolveEntityOption(selectedTargetId);
+                RelationshipType = string.IsNullOrWhiteSpace(RelationshipType) ? "associated_with" : RelationshipType;
+                RelationshipNotes = string.Empty;
+                RelationshipConfidenceText = string.Empty;
+            }
+        }
+        finally
+        {
+            _isPopulatingEditor = false;
+        }
+
+        if (SelectedRelationship is not null)
+        {
+            PopulateEditor(SelectedRelationship);
+        }
 
         OnPropertyChanged(nameof(IsEmpty));
     }
 
     public void UpdateLinkedEvidence(IReadOnlyList<LinkedEvidenceSummaryViewModel> linkedEvidence) =>
         ReplaceCollection(LinkedEvidence, linkedEvidence);
+
+    public void BeginNewRelationship()
+    {
+        _isPopulatingEditor = true;
+        try
+        {
+            SelectedRelationship = null;
+            SelectedSource ??= EntityOptions.FirstOrDefault();
+            SelectedTarget ??= EntityOptions.FirstOrDefault();
+            RelationshipType = "associated_with";
+            RelationshipNotes = string.Empty;
+            RelationshipConfidenceText = string.Empty;
+        }
+        finally
+        {
+            _isPopulatingEditor = false;
+        }
+
+        OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(NoSelection));
+        OnPropertyChanged(nameof(InspectorTitle));
+        OnPropertyChanged(nameof(InspectorHint));
+        OnPropertyChanged(nameof(PrimaryActionLabel));
+    }
+
+    private void PopulateEditor(RelationshipSummaryViewModel? relationship)
+    {
+        if (_isPopulatingEditor)
+        {
+            return;
+        }
+
+        _isPopulatingEditor = true;
+        try
+        {
+            if (relationship is null)
+            {
+                RelationshipNotes = string.Empty;
+                RelationshipConfidenceText = string.Empty;
+                return;
+            }
+
+            SelectedSource = ResolveEntityOption(relationship.SourceEntityId);
+            SelectedTarget = ResolveEntityOption(relationship.TargetEntityId);
+            RelationshipType = relationship.RelationshipType;
+            RelationshipNotes = relationship.Notes ?? string.Empty;
+            RelationshipConfidenceText = relationship.Confidence?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+        finally
+        {
+            _isPopulatingEditor = false;
+        }
+    }
+
+    private EntityOptionViewModel? ResolveEntityOption(Guid? entityId) =>
+        entityId is null
+            ? EntityOptions.FirstOrDefault()
+            : EntityOptions.FirstOrDefault(item => item.Id == entityId) ?? EntityOptions.FirstOrDefault();
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)
     {
