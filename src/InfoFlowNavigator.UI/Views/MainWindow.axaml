@@ -843,6 +843,10 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
               <TextBlock Classes="label" Text="Participants" />
+              <TextBlock Classes="muted"
+                         Text="Required to add a participant: select a participant and enter a role."
+                         TextWrapping="Wrap" />
+              <TextBlock Classes="label" Text="Participant" />
               <ComboBox ItemsSource="{Binding Events.ParticipantEntities}" SelectedItem="{Binding Events.SelectedParticipantEntity}">
                 <ComboBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:EntityOptionViewModel">
@@ -862,20 +866,23 @@
                        TextWrapping="Wrap"
                        VerticalContentAlignment="Top"
                        PlaceholderText="Participant notes" />
-              <TextBlock Classes="muted"
-                         Text="{Binding Events.ParticipantValidationMessage}"
-                         IsVisible="{Binding Events.ShowParticipantValidationMessage}"
-                         TextWrapping="Wrap" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Content="{Binding Events.ParticipantPrimaryActionLabel}"
-                        Command="{Binding Events.AddParticipantCommand}"
-                        IsEnabled="{Binding Events.CanSaveParticipant}" />
-                <Button Grid.Column="1"
-                        Classes="danger"
-                        Content="Remove Participant"
-                        Command="{Binding Events.RemoveParticipantCommand}"
-                        IsEnabled="{Binding Events.CanRemoveParticipant}" />
-              </Grid>
+              <Border Background="#FFF8E8" BorderBrush="#F0D58A" BorderThickness="1" CornerRadius="12" Padding="12">
+                <StackPanel Spacing="8">
+                  <TextBlock Classes="muted"
+                             Text="{Binding Events.ParticipantValidationMessage}"
+                             TextWrapping="Wrap" />
+                  <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Content="{Binding Events.ParticipantPrimaryActionLabel}"
+                            Command="{Binding Events.AddParticipantCommand}"
+                            IsEnabled="{Binding Events.CanSaveParticipant}" />
+                    <Button Grid.Column="1"
+                            Classes="danger"
+                            Content="Remove Participant"
+                            Command="{Binding Events.RemoveParticipantCommand}"
+                            IsEnabled="{Binding Events.CanRemoveParticipant}" />
+                  </Grid>
+                </StackPanel>
+              </Border>
               <ItemsControl ItemsSource="{Binding Events.Participants}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:EventParticipantSummaryViewModel">
