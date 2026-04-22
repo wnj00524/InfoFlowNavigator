@@ -48,10 +48,25 @@ public sealed record EvidenceSummaryViewModel(Guid Id, string Title, string? Cit
     public string DisplayName => Title;
 }
 
-public sealed record EventSummaryViewModel(Guid Id, string Title, DateTimeOffset? OccurredAtUtc, string? Notes, double? Confidence)
+public sealed record EventSummaryViewModel(
+    Guid Id,
+    string Title,
+    DateTimeOffset? OccurredAtUtc,
+    string? Notes,
+    double? Confidence,
+    IReadOnlyList<EventParticipantRoleGroupViewModel> ParticipantRoleGroups)
 {
     public string DisplayName => OccurredAtUtc is null ? Title : $"{OccurredAtUtc:yyyy-MM-dd}: {Title}";
     public string TimelineLabel => OccurredAtUtc?.ToString("yyyy-MM-dd HH:mm 'UTC'") ?? "Undated";
+    public bool HasParticipants => ParticipantRoleGroups.Count > 0;
+    public string ParticipantSummary => HasParticipants
+        ? $"{ParticipantRoleGroups.Sum(group => group.Attendees.Count)} linked participant(s)"
+        : "No linked participants yet.";
+}
+
+public sealed record EventParticipantRoleGroupViewModel(string Role, IReadOnlyList<string> Attendees)
+{
+    public string AttendeeList => string.Join(", ", Attendees);
 }
 
 public sealed record EventParticipantSummaryViewModel(

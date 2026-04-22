@@ -368,6 +368,36 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
+    public void BeginNewEvidenceAssessment_ThenSave_AddsNewAssessmentInsteadOfUpdatingSelectedAssessment()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+        viewModel.Events.SaveEventCommand.Execute(null);
+        viewModel.Evidence.EvidenceTitle = "Interview Summary";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Entity);
+        viewModel.Evidence.SelectedTarget = viewModel.Evidence.Targets.First(item => item.Id == viewModel.Workspace.Entities[0].Id);
+        viewModel.Evidence.SaveLinkCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.EvidenceLinks);
+        viewModel.Evidence.SelectedLink = viewModel.Evidence.LinkedTargets[0];
+
+        viewModel.Evidence.BeginNewAssessmentCommand.Execute(null);
+        viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Event);
+        viewModel.Evidence.SelectedTarget = viewModel.Evidence.Targets.First(item => item.Id == viewModel.Workspace.Events[0].Id);
+        viewModel.Evidence.SaveLinkCommand.Execute(null);
+
+        Assert.Equal(2, viewModel.Workspace.EvidenceLinks.Count);
+        Assert.Contains(viewModel.Workspace.EvidenceLinks, link => link.TargetKind == EvidenceLinkTargetKind.Entity);
+        Assert.Contains(viewModel.Workspace.EvidenceLinks, link => link.TargetKind == EvidenceLinkTargetKind.Event);
+    }
+
+    [Fact]
     public void SaveEvent_WithInvalidOccurredAt_SetsClearValidationMessage()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());

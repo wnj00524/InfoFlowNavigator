@@ -12,7 +12,7 @@ public sealed class EditorWorkflowViewModelTests
     public void BeginNewEvent_ClearsEditorState()
     {
         var viewModel = new EventsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
-        viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, "Notes", 0.7);
+        viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, "Notes", 0.7, []);
 
         viewModel.BeginNewEvent();
 
@@ -85,7 +85,7 @@ public sealed class EditorWorkflowViewModelTests
     [Fact]
     public void BeginNewEvidence_ClearsEditorState()
     {
-        var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
+        var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
         viewModel.Refresh(
             [new EvidenceSummaryViewModel(Guid.NewGuid(), "Evidence", "CIT-1", "Notes", 0.9)],
             null,
@@ -111,7 +111,7 @@ public sealed class EditorWorkflowViewModelTests
 
         Assert.Equal("Add Event", viewModel.PrimaryActionLabel);
 
-        viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, null, null);
+        viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, null, null, []);
 
         Assert.Equal("Save Event", viewModel.PrimaryActionLabel);
     }
@@ -121,7 +121,7 @@ public sealed class EditorWorkflowViewModelTests
     {
         var entityId = Guid.NewGuid();
         var evidenceId = Guid.NewGuid();
-        var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
+        var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
         viewModel.Refresh(
             [new EvidenceSummaryViewModel(evidenceId, "Evidence", "CIT-1", "Notes", 0.9)],
             evidenceId,
@@ -147,6 +147,39 @@ public sealed class EditorWorkflowViewModelTests
         Assert.False(viewModel.IsEditingExistingItem);
         Assert.Equal("Add Evidence", viewModel.PrimaryActionLabel);
         Assert.Null(viewModel.SelectedEvidence);
+    }
+
+    [Fact]
+    public void Evidence_BeginNewAssessment_ClearsSelectedAssessment()
+    {
+        var entityId = Guid.NewGuid();
+        var evidenceId = Guid.NewGuid();
+        var linkId = Guid.NewGuid();
+        var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
+        viewModel.Refresh(
+            [new EvidenceSummaryViewModel(evidenceId, "Evidence", "CIT-1", "Notes", 0.9)],
+            evidenceId,
+            [new EvidenceLinkSummaryViewModel(
+                linkId,
+                evidenceId,
+                "Evidence",
+                EvidenceLinkTargetKind.Entity,
+                entityId,
+                "Alice (Person)",
+                EvidenceRelationToTarget.Supports,
+                EvidenceStrength.Moderate,
+                "Linked",
+                0.8)],
+            [new EvidenceLinkTargetKindOptionViewModel(EvidenceLinkTargetKind.Entity, "Entity")],
+            [new TargetOptionViewModel(entityId, "Alice (Person)")],
+            linkId);
+
+        Assert.Equal("Update Assessment", viewModel.PrimaryLinkActionLabel);
+
+        viewModel.BeginNewAssessment();
+
+        Assert.Null(viewModel.SelectedLink);
+        Assert.Equal("Add Assessment", viewModel.PrimaryLinkActionLabel);
     }
 
     [Theory]
@@ -191,7 +224,7 @@ public sealed class EditorWorkflowViewModelTests
         var parsed = EventOccurredAtFormatting.ParseRequired("21/04/26 14:30");
         var viewModel = new EventsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
 
-        viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", parsed, "Notes", 0.7);
+        viewModel.SelectedEvent = new EventSummaryViewModel(Guid.NewGuid(), "Meeting", parsed, "Notes", 0.7, []);
 
         Assert.Equal("21/04/26 14:30", viewModel.EventOccurredAtText);
     }
@@ -202,7 +235,7 @@ public sealed class EditorWorkflowViewModelTests
         var entityId = Guid.NewGuid();
         var participantId = Guid.NewGuid();
         var viewModel = new EventsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
-        viewModel.Refresh([new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, null, null)], null);
+        viewModel.Refresh([new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, null, null, [])], null);
         viewModel.SelectedEvent = viewModel.Events[0];
         viewModel.UpdateParticipants(
             [new EventParticipantSummaryViewModel(participantId, entityId, "Alice (Person)", "attendee", 0.8, null)],
@@ -228,7 +261,7 @@ public sealed class EditorWorkflowViewModelTests
         Assert.False(viewModel.CanSaveParticipant);
         Assert.Equal("Select an event first.", viewModel.ParticipantValidationMessage);
 
-        viewModel.Refresh([new EventSummaryViewModel(eventId, "Meeting", DateTimeOffset.UtcNow, null, null)], eventId);
+        viewModel.Refresh([new EventSummaryViewModel(eventId, "Meeting", DateTimeOffset.UtcNow, null, null, [])], eventId);
         viewModel.UpdateParticipants([], [new EntityOptionViewModel(entityId, "Alice (Person)")]);
         Assert.False(viewModel.CanSaveParticipant);
         Assert.Equal("Select a participant.", viewModel.ParticipantValidationMessage);
@@ -254,6 +287,25 @@ public sealed class EditorWorkflowViewModelTests
         Assert.Contains("Text=\"Add Event\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Add Claim\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Add Hypothesis\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EventSummaryViewModel_GroupsLinkedAttendeesInsideEventCard()
+    {
+        var summary = new EventSummaryViewModel(
+            Guid.NewGuid(),
+            "Meeting",
+            DateTimeOffset.UtcNow,
+            "Notes",
+            0.8,
+            [
+                new EventParticipantRoleGroupViewModel("attendee", ["Alice (Person)", "Bob (Person)"]),
+                new EventParticipantRoleGroupViewModel("organizer", ["Carol (Person)"])
+            ]);
+
+        Assert.True(summary.HasParticipants);
+        Assert.Equal("3 linked participant(s)", summary.ParticipantSummary);
+        Assert.Equal("Alice (Person), Bob (Person)", summary.ParticipantRoleGroups[0].AttendeeList);
     }
 
     private sealed class NoOpCommand : ICommand

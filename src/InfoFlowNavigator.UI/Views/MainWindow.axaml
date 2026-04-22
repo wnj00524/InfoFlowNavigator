@@ -475,9 +475,27 @@
                             <Border Background="#EEF4FB" CornerRadius="10" Padding="10">
                               <TextBlock FontWeight="SemiBold" Text="{Binding TimelineLabel}" TextWrapping="Wrap" />
                             </Border>
-                            <StackPanel Grid.Column="1">
+                            <StackPanel Grid.Column="1" Spacing="8">
                               <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
                               <TextBlock Classes="muted" Text="{Binding Notes}" TextWrapping="Wrap" />
+                              <Border Background="#FFFFFF" BorderBrush="#D9E2EC" BorderThickness="1" CornerRadius="10" Padding="10">
+                                <StackPanel Spacing="6">
+                                  <TextBlock Classes="label" Text="Linked Attendees" />
+                                  <TextBlock Classes="muted" Text="{Binding ParticipantSummary}" TextWrapping="Wrap" />
+                                  <ItemsControl ItemsSource="{Binding ParticipantRoleGroups}" IsVisible="{Binding HasParticipants}">
+                                    <ItemsControl.ItemTemplate>
+                                      <DataTemplate x:DataType="vm:EventParticipantRoleGroupViewModel">
+                                        <Border Margin="0,0,0,6" Background="#EEF4FB" CornerRadius="8" Padding="8">
+                                          <StackPanel Spacing="2">
+                                            <TextBlock FontWeight="SemiBold" Text="{Binding Role}" />
+                                            <TextBlock Classes="muted" Text="{Binding AttendeeList}" TextWrapping="Wrap" />
+                                          </StackPanel>
+                                        </Border>
+                                      </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                  </ItemsControl>
+                                </StackPanel>
+                              </Border>
                             </StackPanel>
                           </Grid>
                         </Border>
@@ -588,6 +606,10 @@
                     <StackPanel Spacing="10">
                       <TextBlock Classes="section-title" Text="Evidence Assessments" />
                       <TextBlock Classes="muted" Text="{Binding Evidence.LinkHint}" TextWrapping="Wrap" />
+                      <Button Classes="secondary"
+                              Content="New Assessment"
+                              Command="{Binding Evidence.BeginNewAssessmentCommand}"
+                              IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
                       <ComboBox ItemsSource="{Binding Evidence.TargetKinds}" SelectedItem="{Binding Evidence.SelectedTargetKind}">
                         <ComboBox.ItemTemplate>
                           <DataTemplate x:DataType="vm:EvidenceLinkTargetKindOptionViewModel">

@@ -104,6 +104,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new RelayCommand(() => ExecuteSafely(BeginNewEvidence)),
             new RelayCommand(() => ExecuteSafely(SaveEvidence)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedEvidence)),
+            new RelayCommand(() => ExecuteSafely(BeginNewEvidenceAssessment)),
             new RelayCommand(() => ExecuteSafely(SaveEvidenceAssessment)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedEvidenceAssessment)),
             _ => RefreshEvidenceAssessmentsForSelection(),
@@ -615,6 +616,18 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         StatusMessage = "Ready to add new evidence.";
     }
 
+    private void BeginNewEvidenceAssessment()
+    {
+        if (Evidence.SelectedEvidence is null)
+        {
+            StatusMessage = "Select an evidence item first.";
+            return;
+        }
+
+        Evidence.BeginNewAssessment();
+        StatusMessage = "Ready to add a new evidence assessment.";
+    }
+
     private void SaveEvidence()
     {
         var confidence = ParseOptionalConfidence(Evidence.EvidenceConfidenceText, "Evidence confidence");
@@ -765,7 +778,13 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             .ToArray();
 
         var eventItems = Workspace.Events
-            .Select(@event => new EventSummaryViewModel(@event.Id, @event.Title, @event.OccurredAtUtc, @event.Notes, @event.Confidence))
+            .Select(@event => new EventSummaryViewModel(
+                @event.Id,
+                @event.Title,
+                @event.OccurredAtUtc,
+                @event.Notes,
+                @event.Confidence,
+                BuildEventParticipantRoleGroups(@event.Id)))
             .ToArray();
 
         var claimItems = Workspace.Claims
@@ -855,6 +874,18 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 .ToArray(),
             BuildEntityOptions());
     }
+
+    private IReadOnlyList<EventParticipantRoleGroupViewModel> BuildEventParticipantRoleGroups(Guid eventId) =>
+        Workspace.EventParticipants
+            .Where(participant => participant.EventId == eventId)
+            .GroupBy(participant => participant.Role.Trim(), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new EventParticipantRoleGroupViewModel(
+                group.First().Role.Trim(),
+                group.Select(participant => ResolveEntityDisplayName(participant.EntityId))
+                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray()))
+            .ToArray();
 
     private void RefreshClaimLinkedEvidence() =>
         Claims.UpdateLinkedEvidence(Claims.SelectedClaim is null

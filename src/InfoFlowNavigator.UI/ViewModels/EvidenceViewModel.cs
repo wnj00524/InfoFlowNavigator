@@ -27,6 +27,7 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
         ICommand beginNewEvidenceCommand,
         ICommand saveEvidenceCommand,
         ICommand deleteEvidenceCommand,
+        ICommand beginNewAssessmentCommand,
         ICommand saveLinkCommand,
         ICommand deleteLinkCommand,
         Action<EvidenceSummaryViewModel?> selectionChanged,
@@ -35,6 +36,7 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
         BeginNewEvidenceCommand = beginNewEvidenceCommand;
         SaveEvidenceCommand = saveEvidenceCommand;
         DeleteEvidenceCommand = deleteEvidenceCommand;
+        BeginNewAssessmentCommand = beginNewAssessmentCommand;
         SaveLinkCommand = saveLinkCommand;
         DeleteLinkCommand = deleteLinkCommand;
         _selectionChanged = selectionChanged;
@@ -89,6 +91,8 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
     public ICommand SaveEvidenceCommand { get; }
 
     public ICommand DeleteEvidenceCommand { get; }
+
+    public ICommand BeginNewAssessmentCommand { get; }
 
     public ICommand SaveLinkCommand { get; }
 
@@ -202,6 +206,8 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
         : $"Create or update a structured assessment for '{SelectedEvidence.Title}'.";
 
     public string PrimaryLinkActionLabel => SelectedLink is null ? "Add Assessment" : "Update Assessment";
+
+    public bool IsEditingAssessment => SelectedLink is not null;
 
     public void Refresh(
         IReadOnlyList<EvidenceSummaryViewModel> evidenceItems,
