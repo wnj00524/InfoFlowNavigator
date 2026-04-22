@@ -236,6 +236,29 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
+    public void BeginNewCommands_OpenCorrectSpotlightModeAndSection()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        viewModel.Events.BeginNewEventCommand.Execute(null);
+        Assert.True(viewModel.IsSpotlightComposerOpen);
+        Assert.Equal(SpotlightComposerMode.Event, viewModel.SpotlightMode);
+        Assert.Equal(WorkbenchSection.Events, viewModel.SelectedSection?.Section);
+
+        viewModel.Claims.BeginNewClaimCommand.Execute(null);
+        Assert.Equal(SpotlightComposerMode.Claim, viewModel.SpotlightMode);
+        Assert.Equal(WorkbenchSection.Claims, viewModel.SelectedSection?.Section);
+
+        viewModel.Hypotheses.BeginNewHypothesisCommand.Execute(null);
+        Assert.Equal(SpotlightComposerMode.Hypothesis, viewModel.SpotlightMode);
+        Assert.Equal(WorkbenchSection.Hypotheses, viewModel.SelectedSection?.Section);
+
+        viewModel.Evidence.BeginNewEvidenceCommand.Execute(null);
+        Assert.Equal(SpotlightComposerMode.Evidence, viewModel.SpotlightMode);
+        Assert.Equal(WorkbenchSection.Evidence, viewModel.SelectedSection?.Section);
+    }
+
+    [Fact]
     public void SaveClaim_WithNoSelection_AddsAndSelectsCreatedClaim()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
@@ -246,6 +269,20 @@ public sealed class WorkspaceApplicationServiceTests
         Assert.Single(viewModel.Workspace.Claims);
         Assert.NotNull(viewModel.Claims.SelectedClaim);
         Assert.Equal("Save Claim", viewModel.Claims.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void QuickCapture_RoutesToEntityModeAndSection()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.IsQuickCaptureExpanded = true;
+
+        viewModel.BeginQuickAddEntityCommand.Execute(null);
+
+        Assert.Equal(WorkbenchSection.Entities, viewModel.SelectedSection?.Section);
+        Assert.True(viewModel.IsSpotlightComposerOpen);
+        Assert.Equal(SpotlightComposerMode.Entity, viewModel.SpotlightMode);
+        Assert.False(viewModel.IsQuickCaptureExpanded);
     }
 
     [Fact]
@@ -260,6 +297,24 @@ public sealed class WorkspaceApplicationServiceTests
         Assert.Single(viewModel.Workspace.Hypotheses);
         Assert.NotNull(viewModel.Hypotheses.SelectedHypothesis);
         Assert.Equal("Save Hypothesis", viewModel.Hypotheses.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void SaveActions_EnqueueToastFeedbackAndTrackRecentChange()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Events.BeginNewEventCommand.Execute(null);
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+
+        viewModel.Events.SaveEventCommand.Execute(null);
+
+        Assert.True(viewModel.HasToasts);
+        Assert.NotEmpty(viewModel.Toasts);
+        Assert.Equal("Event", viewModel.RecentlyChangedItemKind);
+        Assert.NotNull(viewModel.RecentlyChangedItemId);
+        Assert.Equal("Event Added", viewModel.Toasts[0].Title);
+        Assert.False(viewModel.IsSpotlightComposerOpen);
     }
 
     [Fact]
@@ -297,6 +352,35 @@ public sealed class WorkspaceApplicationServiceTests
         Assert.Single(viewModel.Workspace.Evidence);
         Assert.NotNull(viewModel.Evidence.SelectedEvidence);
         Assert.Equal("Save Evidence", viewModel.Evidence.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void InsightPulse_RefreshesAfterMutations()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Start With Entities");
+
+        viewModel.Claims.BeginNewClaimCommand.Execute(null);
+        viewModel.Claims.Statement = "A working claim.";
+        viewModel.Claims.SaveClaimCommand.Execute(null);
+
+        Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Build Chronology");
+        Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Promote Claims Into Hypotheses");
+    }
+
+    [Fact]
+    public void ToggleRightDrawerCommand_FlipsDrawerState()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        Assert.True(viewModel.IsRightDrawerOpen);
+
+        viewModel.ToggleRightDrawerCommand.Execute(null);
+        Assert.False(viewModel.IsRightDrawerOpen);
+
+        viewModel.ToggleRightDrawerCommand.Execute(null);
+        Assert.True(viewModel.IsRightDrawerOpen);
     }
 
     [Fact]

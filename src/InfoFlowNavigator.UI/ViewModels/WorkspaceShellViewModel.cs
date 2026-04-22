@@ -25,6 +25,12 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private string _statusMessage;
     private WorkbenchSectionItemViewModel? _selectedSection;
     private string? _lastNetworkExportPath;
+    private bool _isRightDrawerOpen = true;
+    private bool _isSpotlightComposerOpen;
+    private SpotlightComposerMode _spotlightMode;
+    private bool _isQuickCaptureExpanded;
+    private Guid? _recentlyChangedItemId;
+    private string? _recentlyChangedItemKind;
 
     public WorkspaceShellViewModel(
         WorkspaceApplicationService workspaceService,
@@ -54,6 +60,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new(WorkbenchSection.Findings, "Findings", "Explainable analysis guidance", "FI")
         };
 
+        Toasts = [];
+        InsightPulseItems = [];
+
         NewWorkspaceCommand = new RelayCommand(() => ExecuteSafely(CreateNewWorkspace));
         OpenWorkspaceCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(OpenWorkspaceAsync));
         SaveWorkspaceCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(SaveWorkspaceAsync));
@@ -68,6 +77,16 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         ShowHypothesesCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Hypotheses));
         ShowEvidenceCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Evidence));
         ShowFindingsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Findings));
+
+        ToggleRightDrawerCommand = new RelayCommand(() => IsRightDrawerOpen = !IsRightDrawerOpen);
+        OpenQuickCaptureCommand = new RelayCommand(() => IsQuickCaptureExpanded = true);
+        CloseQuickCaptureCommand = new RelayCommand(() => IsQuickCaptureExpanded = false);
+        BeginQuickAddEntityCommand = new RelayCommand(() => ExecuteSafely(BeginQuickAddEntity));
+        BeginQuickAddEventCommand = new RelayCommand(() => ExecuteSafely(BeginNewEvent));
+        BeginQuickAddClaimCommand = new RelayCommand(() => ExecuteSafely(BeginNewClaim));
+        BeginQuickAddHypothesisCommand = new RelayCommand(() => ExecuteSafely(BeginNewHypothesis));
+        BeginQuickAddEvidenceCommand = new RelayCommand(() => ExecuteSafely(BeginNewEvidence));
+        CloseSpotlightComposerCommand = new RelayCommand(CloseSpotlightComposer);
 
         Overview = new OverviewViewModel();
         Entities = new EntitiesViewModel(
@@ -197,6 +216,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsHypothesesMode));
                 OnPropertyChanged(nameof(IsEvidenceMode));
                 OnPropertyChanged(nameof(IsFindingsMode));
+                OnPropertyChanged(nameof(IsInspectorVisible));
+                OnPropertyChanged(nameof(CurrentDrawerTitle));
+                OnPropertyChanged(nameof(CurrentDrawerHint));
             }
         }
     }
@@ -211,6 +233,132 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public bool IsHypothesesMode => SelectedSection?.Section == WorkbenchSection.Hypotheses;
     public bool IsEvidenceMode => SelectedSection?.Section == WorkbenchSection.Evidence;
     public bool IsFindingsMode => SelectedSection?.Section == WorkbenchSection.Findings;
+
+    public bool IsRightDrawerOpen
+    {
+        get => _isRightDrawerOpen;
+        set
+        {
+            if (SetProperty(ref _isRightDrawerOpen, value))
+            {
+                OnPropertyChanged(nameof(IsInspectorVisible));
+                OnPropertyChanged(nameof(RightDrawerButtonLabel));
+            }
+        }
+    }
+
+    public bool IsSpotlightComposerOpen
+    {
+        get => _isSpotlightComposerOpen;
+        set => SetProperty(ref _isSpotlightComposerOpen, value);
+    }
+
+    public SpotlightComposerMode SpotlightMode
+    {
+        get => _spotlightMode;
+        set
+        {
+            if (SetProperty(ref _spotlightMode, value))
+            {
+                OnPropertyChanged(nameof(SpotlightTitle));
+                OnPropertyChanged(nameof(SpotlightDescription));
+                OnPropertyChanged(nameof(IsEntitySpotlight));
+                OnPropertyChanged(nameof(IsEventSpotlight));
+                OnPropertyChanged(nameof(IsClaimSpotlight));
+                OnPropertyChanged(nameof(IsHypothesisSpotlight));
+                OnPropertyChanged(nameof(IsEvidenceSpotlight));
+                OnPropertyChanged(nameof(IsRelationshipSpotlight));
+                OnPropertyChanged(nameof(IsEventParticipantSpotlight));
+            }
+        }
+    }
+
+    public bool IsQuickCaptureExpanded
+    {
+        get => _isQuickCaptureExpanded;
+        set => SetProperty(ref _isQuickCaptureExpanded, value);
+    }
+
+    public ObservableCollection<ShellToastViewModel> Toasts { get; }
+
+    public ObservableCollection<InsightPulseItemViewModel> InsightPulseItems { get; }
+
+    public Guid? RecentlyChangedItemId
+    {
+        get => _recentlyChangedItemId;
+        private set => SetProperty(ref _recentlyChangedItemId, value);
+    }
+
+    public string? RecentlyChangedItemKind
+    {
+        get => _recentlyChangedItemKind;
+        private set => SetProperty(ref _recentlyChangedItemKind, value);
+    }
+
+    public bool HasInsightPulseItems => InsightPulseItems.Count > 0;
+    public bool HasToasts => Toasts.Count > 0;
+    public bool IsInspectorVisible => IsRightDrawerOpen && !IsOverviewMode;
+    public string RightDrawerButtonLabel => IsRightDrawerOpen ? "Hide Drawer" : "Show Drawer";
+
+    public string CurrentDrawerTitle =>
+        SelectedSection?.Section switch
+        {
+            WorkbenchSection.Entities => Entities.InspectorTitle,
+            WorkbenchSection.Relationships => Relationships.InspectorTitle,
+            WorkbenchSection.Events => Events.EditorTitle,
+            WorkbenchSection.Claims => Claims.EditorTitle,
+            WorkbenchSection.Hypotheses => Hypotheses.EditorTitle,
+            WorkbenchSection.Evidence => Evidence.EditorTitle,
+            WorkbenchSection.Findings => "Analysis Drawer",
+            _ => "Inspector"
+        };
+
+    public string CurrentDrawerHint =>
+        SelectedSection?.Section switch
+        {
+            WorkbenchSection.Entities => Entities.InspectorHint,
+            WorkbenchSection.Relationships => Relationships.InspectorHint,
+            WorkbenchSection.Events => Events.EditorHint,
+            WorkbenchSection.Claims => Claims.EditorHint,
+            WorkbenchSection.Hypotheses => Hypotheses.EditorHint,
+            WorkbenchSection.Evidence => Evidence.EditorHint,
+            WorkbenchSection.Findings => Findings.TopPrioritySummary,
+            _ => "Context for the active section."
+        };
+
+    public string SpotlightTitle =>
+        SpotlightMode switch
+        {
+            SpotlightComposerMode.Entity => "Quick Capture Entity",
+            SpotlightComposerMode.Event => "Compose Event",
+            SpotlightComposerMode.Claim => "Compose Claim",
+            SpotlightComposerMode.Hypothesis => "Compose Hypothesis",
+            SpotlightComposerMode.Evidence => "Compose Evidence",
+            SpotlightComposerMode.Relationship => "Compose Relationship",
+            SpotlightComposerMode.EventParticipant => "Add Event Participant",
+            _ => "Spotlight Composer"
+        };
+
+    public string SpotlightDescription =>
+        SpotlightMode switch
+        {
+            SpotlightComposerMode.Entity => "Capture a new person, organization, or asset from anywhere in the workspace.",
+            SpotlightComposerMode.Event => "Build an event in a focused composer without leaving the current flow.",
+            SpotlightComposerMode.Claim => "Capture a crisp analytic assertion and route it into the right section.",
+            SpotlightComposerMode.Hypothesis => "Draft or refine a hypothesis in a centered high-focus editor.",
+            SpotlightComposerMode.Evidence => "Bring source material in quickly, then attach assessments after save.",
+            SpotlightComposerMode.Relationship => "Capture a relationship while keeping the rest of the shell quiet.",
+            SpotlightComposerMode.EventParticipant => "Add participant context without losing chronology focus.",
+            _ => "Focused composition surface."
+        };
+
+    public bool IsEntitySpotlight => SpotlightMode == SpotlightComposerMode.Entity;
+    public bool IsEventSpotlight => SpotlightMode == SpotlightComposerMode.Event;
+    public bool IsClaimSpotlight => SpotlightMode == SpotlightComposerMode.Claim;
+    public bool IsHypothesisSpotlight => SpotlightMode == SpotlightComposerMode.Hypothesis;
+    public bool IsEvidenceSpotlight => SpotlightMode == SpotlightComposerMode.Evidence;
+    public bool IsRelationshipSpotlight => SpotlightMode == SpotlightComposerMode.Relationship;
+    public bool IsEventParticipantSpotlight => SpotlightMode == SpotlightComposerMode.EventParticipant;
 
     public OverviewViewModel Overview { get; }
     public EntitiesViewModel Entities { get; }
@@ -234,6 +382,15 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public RelayCommand ShowHypothesesCommand { get; }
     public RelayCommand ShowEvidenceCommand { get; }
     public RelayCommand ShowFindingsCommand { get; }
+    public RelayCommand ToggleRightDrawerCommand { get; }
+    public RelayCommand OpenQuickCaptureCommand { get; }
+    public RelayCommand CloseQuickCaptureCommand { get; }
+    public RelayCommand BeginQuickAddEntityCommand { get; }
+    public RelayCommand BeginQuickAddEventCommand { get; }
+    public RelayCommand BeginQuickAddClaimCommand { get; }
+    public RelayCommand BeginQuickAddHypothesisCommand { get; }
+    public RelayCommand BeginQuickAddEvidenceCommand { get; }
+    public RelayCommand CloseSpotlightComposerCommand { get; }
 
     public void SetStatus(string message) => StatusMessage = message;
 
@@ -252,6 +409,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         _lastNetworkExportPath = null;
         WorkspacePath = string.Empty;
         SetWorkspace(_workspaceService.CreateWorkspace(name));
+        CloseSpotlightComposer();
         StatusMessage = "Created a new workspace.";
     }
 
@@ -283,6 +441,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         WorkspacePath = savePath;
         await _workspaceService.SaveAsync(WorkspacePath.Trim(), Workspace);
         StatusMessage = $"Saved workspace to '{WorkspacePath}'.";
+        EnqueueToast("Workspace Saved", "All changes were written to the selected workspace file.", "Success", "Workspace");
     }
 
     private async Task ExportBriefingAsync()
@@ -305,6 +464,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         await File.WriteAllTextAsync(outputPath, content);
         StatusMessage = $"Exported analyst briefing to '{outputPath}'.";
+        EnqueueToast("Briefing Exported", $"Created analyst briefing at '{outputPath}'.", "Info", "Briefing");
     }
 
     private async Task ExportNetworkAsync()
@@ -321,12 +481,19 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         await _workspaceExportService.ExportAsync(Workspace, outputPath);
         _lastNetworkExportPath = outputPath;
         StatusMessage = $"Exported MedWNetwork-compatible network JSON to '{outputPath}'.";
+        EnqueueToast("Network Exported", $"Created network artifact at '{outputPath}'.", "Info", "Network");
     }
 
     private void AddEntity()
     {
-        SetWorkspace(_workspaceService.AddEntity(Workspace, Entities.NewEntityName, Entities.NewEntityType));
+        var updatedWorkspace = _workspaceService.AddEntity(Workspace, Entities.NewEntityName, Entities.NewEntityType);
+        var createdEntityId = FindAddedId(Workspace.Entities.Select(item => item.Id), updatedWorkspace.Entities.Select(item => item.Id));
+        SetWorkspace(updatedWorkspace);
         Entities.ClearAddForm();
+        Entities.SelectedEntity = Entities.Entities.FirstOrDefault(item => item.Id == createdEntityId);
+        RegisterRecentChange(createdEntityId, "Entity");
+        EnqueueToast("Entity Captured", "Added a new entity to the workspace.", "Success", "Entity");
+        CloseSpotlightComposer();
         StatusMessage = "Added entity to the workspace.";
     }
 
@@ -338,7 +505,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
 
         var confidence = ParseOptionalConfidence(Entities.EditorConfidenceText, "Entity confidence");
-        SetWorkspace(_workspaceService.UpdateEntity(Workspace, Entities.SelectedEntity.Id, Entities.EditorName, Entities.EditorType, Entities.EditorNotes, confidence));
+        var entityId = Entities.SelectedEntity.Id;
+        SetWorkspace(_workspaceService.UpdateEntity(Workspace, entityId, Entities.EditorName, Entities.EditorType, Entities.EditorNotes, confidence));
+        RegisterRecentChange(entityId, "Entity");
+        EnqueueToast("Entity Updated", "Saved the selected entity.", "Success", "Entity");
         StatusMessage = "Updated selected entity.";
     }
 
@@ -365,25 +535,34 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         if (Relationships.SelectedRelationship is null)
         {
-            SetWorkspace(_workspaceService.AddRelationship(
+            var updatedWorkspace = _workspaceService.AddRelationship(
                 Workspace,
                 Relationships.SelectedSource.Id,
                 Relationships.SelectedTarget.Id,
                 Relationships.RelationshipType,
                 Relationships.RelationshipNotes,
-                confidence));
+                confidence);
+            var createdRelationshipId = FindAddedId(Workspace.Relationships.Select(item => item.Id), updatedWorkspace.Relationships.Select(item => item.Id));
+            SetWorkspace(updatedWorkspace);
+            Relationships.SelectedRelationship = Relationships.Relationships.FirstOrDefault(item => item.Id == createdRelationshipId);
+            RegisterRecentChange(createdRelationshipId, "Relationship");
+            EnqueueToast("Relationship Added", "Captured a new relationship in the workspace.", "Success", "Relationship");
+            CloseSpotlightComposer();
             StatusMessage = "Added relationship to the workspace.";
             return;
         }
 
+        var relationshipId = Relationships.SelectedRelationship.Id;
         SetWorkspace(_workspaceService.UpdateRelationship(
             Workspace,
-            Relationships.SelectedRelationship.Id,
+            relationshipId,
             Relationships.SelectedSource.Id,
             Relationships.SelectedTarget.Id,
             Relationships.RelationshipType,
             Relationships.RelationshipNotes,
             confidence));
+        RegisterRecentChange(relationshipId, "Relationship");
+        EnqueueToast("Relationship Updated", "Saved the selected relationship.", "Success", "Relationship");
         StatusMessage = "Updated selected relationship.";
     }
 
@@ -410,6 +589,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             var createdEventId = FindAddedId(Workspace.Events.Select(item => item.Id), updatedWorkspace.Events.Select(item => item.Id));
             SetWorkspace(updatedWorkspace);
             SelectEvent(createdEventId);
+            RegisterRecentChange(createdEventId, "Event");
+            EnqueueToast("Event Added", "Captured a new event.", "Success", "Event");
+            CloseSpotlightComposer();
             StatusMessage = "Added event.";
             return;
         }
@@ -419,13 +601,27 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             throw new InvalidOperationException("Select an event to update or click New Event to add one.");
         }
 
-        SetWorkspace(_workspaceService.UpdateEvent(Workspace, Events.SelectedEvent.Id, Events.EventTitle, occurredAtUtc, Events.EventNotes, confidence));
+        var eventId = Events.SelectedEvent.Id;
+        SetWorkspace(_workspaceService.UpdateEvent(Workspace, eventId, Events.EventTitle, occurredAtUtc, Events.EventNotes, confidence));
+        RegisterRecentChange(eventId, "Event");
+        EnqueueToast("Event Updated", "Saved the selected event.", "Success", "Event");
         StatusMessage = "Updated selected event.";
+    }
+
+    private void BeginQuickAddEntity()
+    {
+        SelectSection(WorkbenchSection.Entities);
+        IsQuickCaptureExpanded = false;
+        OpenSpotlight(SpotlightComposerMode.Entity);
+        StatusMessage = "Ready to capture a new entity.";
     }
 
     private void BeginNewEvent()
     {
+        SelectSection(WorkbenchSection.Events);
         Events.BeginNewEvent();
+        IsQuickCaptureExpanded = false;
+        OpenSpotlight(SpotlightComposerMode.Event);
         StatusMessage = "Ready to add a new event.";
     }
 
@@ -464,24 +660,32 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var confidence = ParseOptionalConfidence(Events.ParticipantConfidenceText, "Participant confidence");
         if (Events.SelectedParticipant is null)
         {
-            SetWorkspace(_workspaceService.AddEventParticipant(
+            var updatedWorkspace = _workspaceService.AddEventParticipant(
                 Workspace,
                 Events.SelectedEvent.Id,
                 Events.SelectedParticipantEntity.Id,
                 Events.ParticipantRole,
                 confidence,
-                Events.ParticipantNotes));
+                Events.ParticipantNotes);
+            var createdParticipantId = FindAddedId(Workspace.EventParticipants.Select(item => item.Id), updatedWorkspace.EventParticipants.Select(item => item.Id));
+            SetWorkspace(updatedWorkspace);
             Events.ClearParticipantEditor();
+            RegisterRecentChange(createdParticipantId, "Event Participant");
+            EnqueueToast("Participant Added", "Linked a participant to the selected event.", "Success", "Event Participant");
+            CloseSpotlightComposer();
             StatusMessage = "Added event participant.";
             return;
         }
 
+        var participantId = Events.SelectedParticipant.Id;
         SetWorkspace(_workspaceService.UpdateEventParticipant(
             Workspace,
-            Events.SelectedParticipant.Id,
+            participantId,
             Events.ParticipantRole,
             confidence,
             Events.ParticipantNotes));
+        RegisterRecentChange(participantId, "Event Participant");
+        EnqueueToast("Participant Updated", "Saved the selected event participant.", "Success", "Event Participant");
         StatusMessage = "Updated event participant.";
     }
 
@@ -499,7 +703,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
     private void BeginNewClaim()
     {
+        SelectSection(WorkbenchSection.Claims);
         Claims.BeginNewClaim();
+        IsQuickCaptureExpanded = false;
+        OpenSpotlight(SpotlightComposerMode.Claim);
         StatusMessage = "Ready to add a new claim.";
     }
 
@@ -527,6 +734,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             var createdClaimId = FindAddedId(Workspace.Claims.Select(item => item.Id), updatedWorkspace.Claims.Select(item => item.Id));
             SetWorkspace(updatedWorkspace);
             SelectClaim(createdClaimId);
+            RegisterRecentChange(createdClaimId, "Claim");
+            EnqueueToast("Claim Added", "Captured a new claim.", "Success", "Claim");
+            CloseSpotlightComposer();
             StatusMessage = "Added claim.";
             return;
         }
@@ -536,9 +746,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             throw new InvalidOperationException("Select a claim to update or click New Claim to add one.");
         }
 
+        var claimId = Claims.SelectedClaim.Id;
         SetWorkspace(_workspaceService.UpdateClaim(
             Workspace,
-            Claims.SelectedClaim.Id,
+            claimId,
             Claims.Statement,
             claimType,
             claimStatus,
@@ -547,12 +758,17 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             targetKind,
             targetId,
             hypothesisId));
+        RegisterRecentChange(claimId, "Claim");
+        EnqueueToast("Claim Updated", "Saved the selected claim.", "Success", "Claim");
         StatusMessage = "Updated selected claim.";
     }
 
     private void BeginNewHypothesis()
     {
+        SelectSection(WorkbenchSection.Hypotheses);
         Hypotheses.BeginNewHypothesis();
+        IsQuickCaptureExpanded = false;
+        OpenSpotlight(SpotlightComposerMode.Hypothesis);
         StatusMessage = "Ready to add a new hypothesis.";
     }
 
@@ -585,6 +801,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             var createdHypothesisId = FindAddedId(Workspace.Hypotheses.Select(item => item.Id), updatedWorkspace.Hypotheses.Select(item => item.Id));
             SetWorkspace(updatedWorkspace);
             SelectHypothesis(createdHypothesisId);
+            RegisterRecentChange(createdHypothesisId, "Hypothesis");
+            EnqueueToast("Hypothesis Added", "Captured a new hypothesis.", "Success", "Hypothesis");
+            CloseSpotlightComposer();
             StatusMessage = "Added hypothesis.";
             return;
         }
@@ -594,7 +813,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             throw new InvalidOperationException("Select a hypothesis to update or click New Hypothesis to add one.");
         }
 
-        SetWorkspace(_workspaceService.UpdateHypothesis(Workspace, Hypotheses.SelectedHypothesis.Id, Hypotheses.Title, Hypotheses.Statement, status, confidence, Hypotheses.Notes));
+        var hypothesisId = Hypotheses.SelectedHypothesis.Id;
+        SetWorkspace(_workspaceService.UpdateHypothesis(Workspace, hypothesisId, Hypotheses.Title, Hypotheses.Statement, status, confidence, Hypotheses.Notes));
+        RegisterRecentChange(hypothesisId, "Hypothesis");
+        EnqueueToast("Hypothesis Updated", "Saved the selected hypothesis.", "Success", "Hypothesis");
         StatusMessage = "Updated selected hypothesis.";
     }
 
@@ -612,7 +834,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
     private void BeginNewEvidence()
     {
+        SelectSection(WorkbenchSection.Evidence);
         Evidence.BeginNewEvidence();
+        IsQuickCaptureExpanded = false;
+        OpenSpotlight(SpotlightComposerMode.Evidence);
         StatusMessage = "Ready to add new evidence.";
     }
 
@@ -624,7 +849,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             return;
         }
 
+        SelectSection(WorkbenchSection.Evidence);
         Evidence.BeginNewAssessment();
+        OpenSpotlight(SpotlightComposerMode.Evidence);
         StatusMessage = "Ready to add a new evidence assessment.";
     }
 
@@ -638,6 +865,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             var createdEvidenceId = FindAddedId(Workspace.Evidence.Select(item => item.Id), updatedWorkspace.Evidence.Select(item => item.Id));
             SetWorkspace(updatedWorkspace);
             SelectEvidence(createdEvidenceId);
+            RegisterRecentChange(createdEvidenceId, "Evidence");
+            EnqueueToast("Evidence Added", "Captured a new evidence item.", "Success", "Evidence");
+            CloseSpotlightComposer();
             StatusMessage = "Added evidence.";
             return;
         }
@@ -647,7 +877,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             throw new InvalidOperationException("Select evidence to update or click New Evidence to add new evidence.");
         }
 
-        SetWorkspace(_workspaceService.UpdateEvidence(Workspace, Evidence.SelectedEvidence.Id, Evidence.EvidenceTitle, Evidence.EvidenceCitation, Evidence.EvidenceNotes, confidence));
+        var evidenceId = Evidence.SelectedEvidence.Id;
+        SetWorkspace(_workspaceService.UpdateEvidence(Workspace, evidenceId, Evidence.EvidenceTitle, Evidence.EvidenceCitation, Evidence.EvidenceNotes, confidence));
+        RegisterRecentChange(evidenceId, "Evidence");
+        EnqueueToast("Evidence Updated", "Saved the selected evidence item.", "Success", "Evidence");
         StatusMessage = "Updated selected evidence.";
     }
 
@@ -678,7 +911,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var confidence = ParseOptionalConfidence(Evidence.LinkConfidenceText, "Evidence assessment confidence");
         if (Evidence.SelectedLink is null)
         {
-            SetWorkspace(_workspaceService.AddEvidenceAssessment(
+            var updatedWorkspace = _workspaceService.AddEvidenceAssessment(
                 Workspace,
                 Evidence.SelectedEvidence.Id,
                 Evidence.SelectedTargetKind.Kind,
@@ -686,14 +919,19 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 Evidence.SelectedRelation.Relation,
                 Evidence.SelectedStrength.Strength,
                 Evidence.LinkNotes,
-                confidence));
+                confidence);
+            var createdLinkId = FindAddedId(Workspace.EvidenceLinks.Select(item => item.Id), updatedWorkspace.EvidenceLinks.Select(item => item.Id));
+            SetWorkspace(updatedWorkspace);
+            RegisterRecentChange(createdLinkId, "Evidence Assessment");
+            EnqueueToast("Assessment Added", "Attached a new evidence assessment.", "Success", "Evidence Assessment");
             StatusMessage = "Added evidence assessment.";
             return;
         }
 
+        var linkId = Evidence.SelectedLink.Id;
         SetWorkspace(_workspaceService.UpdateEvidenceAssessment(
             Workspace,
-            Evidence.SelectedLink.Id,
+            linkId,
             Evidence.SelectedEvidence.Id,
             Evidence.SelectedTargetKind.Kind,
             Evidence.SelectedTarget.Id,
@@ -701,6 +939,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             Evidence.SelectedStrength.Strength,
             Evidence.LinkNotes,
             confidence));
+        RegisterRecentChange(linkId, "Evidence Assessment");
+        EnqueueToast("Assessment Updated", "Saved the selected evidence assessment.", "Success", "Evidence Assessment");
         StatusMessage = "Updated selected evidence assessment.";
     }
 
@@ -714,6 +954,36 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         SetWorkspace(_workspaceService.RemoveEvidenceAssessment(Workspace, Evidence.SelectedLink.Id));
         Evidence.BeginNewAssessment();
         StatusMessage = "Deleted selected evidence assessment.";
+    }
+
+    private void OpenSpotlight(SpotlightComposerMode mode)
+    {
+        SpotlightMode = mode;
+        IsSpotlightComposerOpen = mode != SpotlightComposerMode.None;
+        IsRightDrawerOpen = true;
+    }
+
+    private void CloseSpotlightComposer()
+    {
+        IsSpotlightComposerOpen = false;
+        SpotlightMode = SpotlightComposerMode.None;
+    }
+
+    private void RegisterRecentChange(Guid itemId, string itemKind)
+    {
+        RecentlyChangedItemId = itemId;
+        RecentlyChangedItemKind = itemKind;
+    }
+
+    private void EnqueueToast(string title, string message, string tone, string? itemKind = null)
+    {
+        Toasts.Insert(0, new ShellToastViewModel(title, message, tone, itemKind));
+        while (Toasts.Count > 4)
+        {
+            Toasts.RemoveAt(Toasts.Count - 1);
+        }
+
+        OnPropertyChanged(nameof(HasToasts));
     }
 
     private void SetWorkspace(AnalysisWorkspace workspace)
@@ -829,6 +1099,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         RefreshEvidenceTargets(targetKind);
         Claims.UpdateTargets(BuildClaimTargetOptions(Claims.SelectedTargetKind?.Kind));
 
+        RefreshInsightPulseItems();
+
         OnPropertyChanged(nameof(WorkspaceEntityCount));
         OnPropertyChanged(nameof(WorkspaceRelationshipCount));
         OnPropertyChanged(nameof(WorkspaceEventCount));
@@ -837,7 +1109,80 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         OnPropertyChanged(nameof(WorkspaceHypothesisCount));
         OnPropertyChanged(nameof(WorkspaceEvidenceCount));
         OnPropertyChanged(nameof(WorkspaceEvidenceLinkCount));
+        OnPropertyChanged(nameof(CurrentDrawerTitle));
+        OnPropertyChanged(nameof(CurrentDrawerHint));
     }
+
+    private void RefreshInsightPulseItems()
+    {
+        var items = new List<InsightPulseItemViewModel>();
+
+        foreach (var finding in _analysis.Findings
+                     .OrderByDescending(item => item.PriorityScore)
+                     .Take(3))
+        {
+            items.Add(new InsightPulseItemViewModel(
+                finding.Title,
+                finding.Detail,
+                finding.Severity.ToString(),
+                ResolveTargetSection(finding),
+                true));
+        }
+
+        if (items.Count == 0 && WorkspaceEntityCount == 0)
+        {
+            items.Add(new InsightPulseItemViewModel(
+                "Start With Entities",
+                "Capture the primary people, organizations, and assets to anchor the workspace.",
+                "Info",
+                WorkbenchSection.Entities,
+                true));
+        }
+
+        if (items.Count < 3 && WorkspaceEventCount == 0 && WorkspaceClaimCount + WorkspaceEvidenceCount > 0)
+        {
+            items.Add(new InsightPulseItemViewModel(
+                "Build Chronology",
+                "There is evidence and narrative data but no dated events yet.",
+                "Warning",
+                WorkbenchSection.Events,
+                true));
+        }
+
+        if (items.Count < 3 && WorkspaceHypothesisCount == 0 && WorkspaceClaimCount > 0)
+        {
+            items.Add(new InsightPulseItemViewModel(
+                "Promote Claims Into Hypotheses",
+                "Working claims exist without explicit competing explanations.",
+                "Info",
+                WorkbenchSection.Hypotheses,
+                true));
+        }
+
+        ReplaceCollection(InsightPulseItems, items.Take(4).ToArray());
+        OnPropertyChanged(nameof(HasInsightPulseItems));
+    }
+
+    private static WorkbenchSection ResolveTargetSection(AnalysisFinding finding) =>
+        finding.TargetKind switch
+        {
+            "Entity" => WorkbenchSection.Entities,
+            "Relationship" => WorkbenchSection.Relationships,
+            "Event" => WorkbenchSection.Events,
+            "Claim" => WorkbenchSection.Claims,
+            "Hypothesis" => WorkbenchSection.Hypotheses,
+            "Evidence" => WorkbenchSection.Evidence,
+            _ => finding.Category switch
+            {
+                FindingCategory.SupportGap => WorkbenchSection.Findings,
+                FindingCategory.Contradiction => WorkbenchSection.Claims,
+                FindingCategory.Timeline => WorkbenchSection.Events,
+                FindingCategory.Hypothesis => WorkbenchSection.Hypotheses,
+                FindingCategory.Collection => WorkbenchSection.Findings,
+                FindingCategory.Participation => WorkbenchSection.Events,
+                _ => WorkbenchSection.Overview
+            }
+        };
 
     private void RefreshEntityLinkedEvidence() =>
         Entities.UpdateLinkedEvidence(Entities.SelectedEntity is null
@@ -1114,6 +1459,15 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     {
         var existing = existingIds.ToHashSet();
         return updatedIds.First(id => !existing.Contains(id));
+    }
+
+    private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)
+    {
+        collection.Clear();
+        foreach (var item in items)
+        {
+            collection.Add(item);
+        }
     }
 
     private void ExecuteSafely(Action action)

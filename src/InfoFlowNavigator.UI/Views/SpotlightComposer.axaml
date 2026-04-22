@@ -1,0 +1,150 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InfoFlowNavigator.UI.ViewModels"
+             x:Class="InfoFlowNavigator.UI.Views.SpotlightComposer"
+             x:DataType="vm:WorkspaceShellViewModel">
+  <UserControl.Styles>
+    <StyleInclude Source="avares://InfoFlowNavigator.UI/Views/ShellStyles.axaml" />
+  </UserControl.Styles>
+
+  <Grid Background="#B2061220">
+    <Border Classes="spotlight-card"
+            Width="920"
+            MaxWidth="920"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+      <ScrollViewer MaxHeight="760">
+        <StackPanel Spacing="18">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="page-title" Text="{Binding SpotlightTitle}" />
+              <TextBlock Classes="muted" Text="{Binding SpotlightDescription}" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Classes="ghost"
+                    Content="Close"
+                    Command="{Binding CloseSpotlightComposerCommand}" />
+          </Grid>
+
+          <StackPanel Spacing="14" IsVisible="{Binding IsEntitySpotlight}">
+            <TextBlock Classes="label" Text="Entity Name" />
+            <TextBox Text="{Binding Entities.NewEntityName}" PlaceholderText="Person, organization, asset" />
+            <TextBlock Classes="label" Text="Entity Type" />
+            <TextBox Text="{Binding Entities.NewEntityType}" PlaceholderText="Person" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Content="Add Entity" Command="{Binding Entities.AddEntityCommand}" />
+              <Button Grid.Column="1" Classes="secondary" Content="Cancel" Command="{Binding CloseSpotlightComposerCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Spacing="14" IsVisible="{Binding IsEventSpotlight}">
+            <TextBlock Classes="label" Text="Event Title" />
+            <TextBox Text="{Binding Events.EventTitle}" PlaceholderText="Observed event title" />
+            <TextBlock Classes="label" Text="Occurred At" />
+            <TextBox Text="{Binding Events.EventOccurredAtText}" PlaceholderText="{Binding Events.OccurredAtHint}" />
+            <TextBlock Classes="label" Text="Confidence" />
+            <TextBox Text="{Binding Events.EventConfidenceText}" PlaceholderText="0.0 to 1.0" />
+            <TextBlock Classes="label" Text="Notes" />
+            <TextBox Text="{Binding Events.EventNotes}" AcceptsReturn="True" Height="130" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Content="{Binding Events.PrimaryActionLabel}" Command="{Binding Events.SaveEventCommand}" />
+              <Button Grid.Column="1" Classes="secondary" Content="Cancel" Command="{Binding CloseSpotlightComposerCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Spacing="14" IsVisible="{Binding IsClaimSpotlight}">
+            <TextBlock Classes="label" Text="Statement" />
+            <TextBox Text="{Binding Claims.Statement}" AcceptsReturn="True" Height="110" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+            <TextBlock Classes="label" Text="Claim Type" />
+            <ComboBox ItemsSource="{Binding Claims.ClaimTypes}" SelectedItem="{Binding Claims.SelectedClaimType}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ClaimTypeOptionViewModel">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Classes="label" Text="Status" />
+            <ComboBox ItemsSource="{Binding Claims.ClaimStatuses}" SelectedItem="{Binding Claims.SelectedClaimStatus}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ClaimStatusOptionViewModel">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Classes="label" Text="Target Kind" />
+            <ComboBox ItemsSource="{Binding Claims.TargetKinds}" SelectedItem="{Binding Claims.SelectedTargetKind}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ClaimTargetKindOptionViewModel">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ComboBox ItemsSource="{Binding Claims.Targets}" SelectedItem="{Binding Claims.SelectedTarget}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:TargetOptionViewModel">
+                  <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Classes="label" Text="Related Hypothesis" />
+            <ComboBox ItemsSource="{Binding Claims.Hypotheses}" SelectedItem="{Binding Claims.SelectedHypothesis}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:HypothesisSummaryViewModel">
+                  <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Classes="label" Text="Confidence" />
+            <TextBox Text="{Binding Claims.ConfidenceText}" PlaceholderText="0.0 to 1.0" />
+            <TextBlock Classes="label" Text="Notes" />
+            <TextBox Text="{Binding Claims.Notes}" AcceptsReturn="True" Height="110" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Content="{Binding Claims.PrimaryActionLabel}" Command="{Binding Claims.SaveClaimCommand}" />
+              <Button Grid.Column="1" Classes="secondary" Content="Cancel" Command="{Binding CloseSpotlightComposerCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Spacing="14" IsVisible="{Binding IsHypothesisSpotlight}">
+            <TextBlock Classes="label" Text="Title" />
+            <TextBox Text="{Binding Hypotheses.Title}" PlaceholderText="Working hypothesis title" />
+            <TextBlock Classes="label" Text="Statement" />
+            <TextBox Text="{Binding Hypotheses.Statement}" AcceptsReturn="True" Height="130" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+            <TextBlock Classes="label" Text="Status" />
+            <ComboBox ItemsSource="{Binding Hypotheses.StatusOptions}" SelectedItem="{Binding Hypotheses.SelectedStatus}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:HypothesisStatusOptionViewModel">
+                  <TextBlock Text="{Binding DisplayName}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Classes="label" Text="Confidence" />
+            <TextBox Text="{Binding Hypotheses.ConfidenceText}" PlaceholderText="0.0 to 1.0" />
+            <TextBlock Classes="label" Text="Notes" />
+            <TextBox Text="{Binding Hypotheses.Notes}" AcceptsReturn="True" Height="110" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Content="{Binding Hypotheses.PrimaryActionLabel}"
+                      Command="{Binding Hypotheses.SaveHypothesisCommand}"
+                      IsEnabled="{Binding Hypotheses.CanSaveHypothesis}" />
+              <Button Grid.Column="1" Classes="secondary" Content="Cancel" Command="{Binding CloseSpotlightComposerCommand}" />
+            </Grid>
+          </StackPanel>
+
+          <StackPanel Spacing="14" IsVisible="{Binding IsEvidenceSpotlight}">
+            <TextBlock Classes="label" Text="Evidence Title" />
+            <TextBox Text="{Binding Evidence.EvidenceTitle}" PlaceholderText="Evidence title" />
+            <TextBlock Classes="label" Text="Citation" />
+            <TextBox Text="{Binding Evidence.EvidenceCitation}" PlaceholderText="Source reference" />
+            <TextBlock Classes="label" Text="Confidence" />
+            <TextBox Text="{Binding Evidence.EvidenceConfidenceText}" PlaceholderText="0.0 to 1.0" />
+            <TextBlock Classes="label" Text="Notes" />
+            <TextBox Text="{Binding Evidence.EvidenceNotes}" AcceptsReturn="True" Height="130" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Content="{Binding Evidence.PrimaryActionLabel}" Command="{Binding Evidence.SaveEvidenceCommand}" />
+              <Button Grid.Column="1" Classes="secondary" Content="Cancel" Command="{Binding CloseSpotlightComposerCommand}" />
+            </Grid>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+  </Grid>
+</UserControl>
