@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InfoFlowNavigator.UI.ViewModels"
+             x:Class="InfoFlowNavigator.UI.Views.ShellToastHost"
+             x:DataType="vm:WorkspaceShellViewModel">
+  <UserControl.Styles>
+    <StyleInclude Source="avares://InfoFlowNavigator.UI/Views/ShellStyles.axaml" />
+  </UserControl.Styles>
+
+  <ItemsControl ItemsSource="{Binding Toasts}">
+    <ItemsControl.ItemTemplate>
+      <DataTemplate x:DataType="vm:ShellToastViewModel">
+        <Border Classes="toast-card" Margin="0,0,0,10" IsVisible="{Binding IsVisible}">
+          <StackPanel Spacing="6">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="badge-pill">
+                <TextBlock Text="{Binding Tone}" />
+              </Border>
+              <TextBlock Classes="label" Text="{Binding Title}" />
+            </StackPanel>
+            <TextBlock Classes="muted" Text="{Binding Message}" TextWrapping="Wrap" />
+          </StackPanel>
+        </Border>
+      </DataTemplate>
+    </ItemsControl.ItemTemplate>
+  </ItemsControl>
+</UserControl>

@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     public MainWindow(WorkspaceShellViewModel viewModel)
     {
         InitializeComponent();
+        WindowState = WindowState.Maximized;
         DataContext = viewModel;
     }
 
