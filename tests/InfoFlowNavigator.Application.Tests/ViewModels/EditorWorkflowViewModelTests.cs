@@ -276,17 +276,20 @@ public sealed class EditorWorkflowViewModelTests
     }
 
     [Fact]
-    public void MainWindow_IncludesQuickCaptureAndOverlayHosts()
+    public void MainWindow_UsesTopRailAndHonestNewItemLabels()
     {
         var xamlPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "InfoFlowNavigator.UI", "Views", "MainWindow.axaml");
         var xaml = File.ReadAllText(Path.GetFullPath(xamlPath));
 
-        Assert.Contains("Open Quick Capture", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"New Event\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"New Claim\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"New Hypothesis\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Classes=\"top-rail nav-rail\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Add Entity...\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Event...\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Claim...\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Hypothesis...\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Evidence...\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Target Type\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Assessment\"", xaml, StringComparison.Ordinal);
         Assert.Contains("<view:SpotlightComposer", xaml, StringComparison.Ordinal);
-        Assert.Contains("<view:ShellToastHost", xaml, StringComparison.Ordinal);
         Assert.Contains("<view:InsightPulseBar", xaml, StringComparison.Ordinal);
     }
 
