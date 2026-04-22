@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
+using System.Threading;
 using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Application.Workspaces;
@@ -31,19 +32,23 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private bool _isQuickCaptureExpanded;
     private Guid? _recentlyChangedItemId;
     private string? _recentlyChangedItemKind;
+    private readonly TimeSpan _transientStatusDuration;
+    private CancellationTokenSource? _statusClearCancellationTokenSource;
 
     public WorkspaceShellViewModel(
         WorkspaceApplicationService workspaceService,
         IAnalysisService analysisService,
         IReportGenerator reportGenerator,
         IWorkspaceExportService workspaceExportService,
-        IWorkspaceFileDialogService workspaceFileDialogService)
+        IWorkspaceFileDialogService workspaceFileDialogService,
+        TimeSpan? transientStatusDuration = null)
     {
         _workspaceService = workspaceService;
         _analysisService = analysisService;
         _reportGenerator = reportGenerator;
         _workspaceExportService = workspaceExportService;
         _workspaceFileDialogService = workspaceFileDialogService;
+        _transientStatusDuration = transientStatusDuration ?? TimeSpan.FromSeconds(4);
         _workspace = workspaceService.CreateWorkspace("Untitled Workspace");
         _analysis = _analysisService.SummarizeAsync(_workspace).GetAwaiter().GetResult();
         _statusMessage = "Create or open a workspace to begin.";
@@ -392,7 +397,21 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public RelayCommand BeginQuickAddEvidenceCommand { get; }
     public RelayCommand CloseSpotlightComposerCommand { get; }
 
-    public void SetStatus(string message) => StatusMessage = message;
+    public void SetStatus(string message)
+    {
+        CancelPendingStatusClear();
+        StatusMessage = message;
+    }
+
+    public void SetTransientStatus(string message)
+    {
+        CancelPendingStatusClear();
+        StatusMessage = message;
+
+        var clearCts = new CancellationTokenSource();
+        _statusClearCancellationTokenSource = clearCts;
+        _ = ClearStatusMessageAsync(clearCts);
+    }
 
     private void SelectSection(WorkbenchSection section)
     {
@@ -410,7 +429,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         WorkspacePath = string.Empty;
         SetWorkspace(_workspaceService.CreateWorkspace(name));
         CloseSpotlightComposer();
-        StatusMessage = "Created a new workspace.";
+        SetTransientStatus("Created a new workspace.");
     }
 
     private async Task OpenWorkspaceAsync()
@@ -418,14 +437,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var selectedPath = await _workspaceFileDialogService.PickOpenWorkspacePathAsync();
         if (string.IsNullOrWhiteSpace(selectedPath))
         {
-            StatusMessage = "Open workspace canceled.";
+            SetTransientStatus("Open workspace canceled.");
             return;
         }
 
         _lastNetworkExportPath = null;
         WorkspacePath = selectedPath;
         SetWorkspace(await _workspaceService.OpenAsync(WorkspacePath.Trim()));
-        StatusMessage = $"Opened workspace from '{WorkspacePath}'.";
+        SetTransientStatus($"Opened workspace from '{WorkspacePath}'.");
     }
 
     private async Task SaveWorkspaceAsync()
@@ -433,14 +452,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var savePath = await EnsureWorkspacePathForSaveAsync();
         if (string.IsNullOrWhiteSpace(savePath))
         {
-            StatusMessage = "Save workspace canceled.";
+            SetTransientStatus("Save workspace canceled.");
             return;
         }
 
         SetWorkspace(_workspaceService.RenameWorkspace(Workspace, WorkspaceName));
         WorkspacePath = savePath;
         await _workspaceService.SaveAsync(WorkspacePath.Trim(), Workspace);
-        StatusMessage = $"Saved workspace to '{WorkspacePath}'.";
+        SetTransientStatus($"Saved workspace to '{WorkspacePath}'.");
         EnqueueToast("Workspace Saved", "All changes were written to the selected workspace file.", "Success", "Workspace");
     }
 
@@ -449,7 +468,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var savePath = await EnsureWorkspacePathForSaveAsync();
         if (string.IsNullOrWhiteSpace(savePath))
         {
-            StatusMessage = "Briefing export canceled.";
+            SetTransientStatus("Briefing export canceled.");
             return;
         }
 
@@ -463,7 +482,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
 
         await File.WriteAllTextAsync(outputPath, content);
-        StatusMessage = $"Exported analyst briefing to '{outputPath}'.";
+        SetTransientStatus($"Exported analyst briefing to '{outputPath}'.");
         EnqueueToast("Briefing Exported", $"Created analyst briefing at '{outputPath}'.", "Info", "Briefing");
     }
 
@@ -472,7 +491,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var savePath = await EnsureWorkspacePathForSaveAsync();
         if (string.IsNullOrWhiteSpace(savePath))
         {
-            StatusMessage = "Network export canceled.";
+            SetTransientStatus("Network export canceled.");
             return;
         }
 
@@ -480,7 +499,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var outputPath = BuildSiblingArtifactPath(".network.json");
         await _workspaceExportService.ExportAsync(Workspace, outputPath);
         _lastNetworkExportPath = outputPath;
-        StatusMessage = $"Exported MedWNetwork-compatible network JSON to '{outputPath}'.";
+        SetTransientStatus($"Exported MedWNetwork-compatible network JSON to '{outputPath}'.");
         EnqueueToast("Network Exported", $"Created network artifact at '{outputPath}'.", "Info", "Network");
     }
 
@@ -494,7 +513,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         RegisterRecentChange(createdEntityId, "Entity");
         EnqueueToast("Entity Captured", "Added a new entity to the workspace.", "Success", "Entity");
         CloseSpotlightComposer();
-        StatusMessage = "Added entity to the workspace.";
+        SetTransientStatus("Added entity to the workspace.");
     }
 
     private void UpdateSelectedEntity()
@@ -509,7 +528,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         SetWorkspace(_workspaceService.UpdateEntity(Workspace, entityId, Entities.EditorName, Entities.EditorType, Entities.EditorNotes, confidence));
         RegisterRecentChange(entityId, "Entity");
         EnqueueToast("Entity Updated", "Saved the selected entity.", "Success", "Entity");
-        StatusMessage = "Updated selected entity.";
+        SetTransientStatus("Updated selected entity.");
     }
 
     private void DeleteSelectedEntity()
@@ -521,7 +540,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         var name = Entities.SelectedEntity.Name;
         SetWorkspace(_workspaceService.RemoveEntity(Workspace, Entities.SelectedEntity.Id));
-        StatusMessage = $"Deleted entity '{name}'.";
+        SetTransientStatus($"Deleted entity '{name}'.");
     }
 
     private void SaveRelationship()
@@ -548,7 +567,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             RegisterRecentChange(createdRelationshipId, "Relationship");
             EnqueueToast("Relationship Added", "Captured a new relationship in the workspace.", "Success", "Relationship");
             CloseSpotlightComposer();
-            StatusMessage = "Added relationship to the workspace.";
+            SetTransientStatus("Added relationship to the workspace.");
             return;
         }
 
@@ -563,7 +582,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             confidence));
         RegisterRecentChange(relationshipId, "Relationship");
         EnqueueToast("Relationship Updated", "Saved the selected relationship.", "Success", "Relationship");
-        StatusMessage = "Updated selected relationship.";
+        SetTransientStatus("Updated selected relationship.");
     }
 
     private void DeleteSelectedRelationship()
@@ -575,7 +594,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         SetWorkspace(_workspaceService.RemoveRelationship(Workspace, Relationships.SelectedRelationship.Id));
         Relationships.BeginNewRelationship();
-        StatusMessage = "Deleted selected relationship.";
+        SetTransientStatus("Deleted selected relationship.");
     }
 
     private void SaveEvent()
@@ -592,7 +611,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             RegisterRecentChange(createdEventId, "Event");
             EnqueueToast("Event Added", "Captured a new event.", "Success", "Event");
             CloseSpotlightComposer();
-            StatusMessage = "Added event.";
+            SetTransientStatus("Added event.");
             return;
         }
 
@@ -605,15 +624,15 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         SetWorkspace(_workspaceService.UpdateEvent(Workspace, eventId, Events.EventTitle, occurredAtUtc, Events.EventNotes, confidence));
         RegisterRecentChange(eventId, "Event");
         EnqueueToast("Event Updated", "Saved the selected event.", "Success", "Event");
-        StatusMessage = "Updated selected event.";
+        SetTransientStatus("Updated selected event.");
     }
 
     private void BeginQuickAddEntity()
     {
         SelectSection(WorkbenchSection.Entities);
         IsQuickCaptureExpanded = false;
-        OpenSpotlight(SpotlightComposerMode.Entity);
-        StatusMessage = "Ready to capture a new entity.";
+        CloseSpotlightComposer();
+        SetTransientStatus("Entity quick add is ready.");
     }
 
     private void BeginNewEvent()
@@ -622,7 +641,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         Events.BeginNewEvent();
         IsQuickCaptureExpanded = false;
         OpenSpotlight(SpotlightComposerMode.Event);
-        StatusMessage = "Ready to add a new event.";
+        SetTransientStatus("Event editor is ready.");
     }
 
     private void DeleteSelectedEvent()
@@ -634,26 +653,26 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         var title = Events.SelectedEvent.Title;
         SetWorkspace(_workspaceService.RemoveEvent(Workspace, Events.SelectedEvent.Id));
-        StatusMessage = $"Deleted event '{title}'.";
+        SetTransientStatus($"Deleted event '{title}'.");
     }
 
     private void AddEventParticipant()
     {
         if (Events.SelectedEvent is null)
         {
-            StatusMessage = "Select an event first.";
+            SetStatus("Select an event first.");
             return;
         }
 
         if (Events.SelectedParticipantEntity is null)
         {
-            StatusMessage = "Select a participant.";
+            SetStatus("Select a participant.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(Events.ParticipantRole))
         {
-            StatusMessage = "Participant role is required.";
+            SetStatus("Participant role is required.");
             return;
         }
 
@@ -673,7 +692,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             RegisterRecentChange(createdParticipantId, "Event Participant");
             EnqueueToast("Participant Added", "Linked a participant to the selected event.", "Success", "Event Participant");
             CloseSpotlightComposer();
-            StatusMessage = "Added event participant.";
+            SetTransientStatus("Added event participant.");
             return;
         }
 
@@ -686,7 +705,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             Events.ParticipantNotes));
         RegisterRecentChange(participantId, "Event Participant");
         EnqueueToast("Participant Updated", "Saved the selected event participant.", "Success", "Event Participant");
-        StatusMessage = "Updated event participant.";
+        SetTransientStatus("Updated event participant.");
     }
 
     private void DeleteSelectedEventParticipant()
@@ -698,7 +717,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         SetWorkspace(_workspaceService.RemoveEventParticipant(Workspace, Events.SelectedParticipant.Id));
         Events.ClearParticipantEditor();
-        StatusMessage = "Removed event participant.";
+        SetTransientStatus("Removed event participant.");
     }
 
     private void BeginNewClaim()
@@ -707,7 +726,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         Claims.BeginNewClaim();
         IsQuickCaptureExpanded = false;
         OpenSpotlight(SpotlightComposerMode.Claim);
-        StatusMessage = "Ready to add a new claim.";
+        SetTransientStatus("Claim editor is ready.");
     }
 
     private void SaveClaim()
@@ -737,7 +756,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             RegisterRecentChange(createdClaimId, "Claim");
             EnqueueToast("Claim Added", "Captured a new claim.", "Success", "Claim");
             CloseSpotlightComposer();
-            StatusMessage = "Added claim.";
+            SetTransientStatus("Added claim.");
             return;
         }
 
@@ -760,7 +779,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             hypothesisId));
         RegisterRecentChange(claimId, "Claim");
         EnqueueToast("Claim Updated", "Saved the selected claim.", "Success", "Claim");
-        StatusMessage = "Updated selected claim.";
+        SetTransientStatus("Updated selected claim.");
     }
 
     private void BeginNewHypothesis()
@@ -769,7 +788,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         Hypotheses.BeginNewHypothesis();
         IsQuickCaptureExpanded = false;
         OpenSpotlight(SpotlightComposerMode.Hypothesis);
-        StatusMessage = "Ready to add a new hypothesis.";
+        SetTransientStatus("Hypothesis editor is ready.");
     }
 
     private void DeleteSelectedClaim()
@@ -781,14 +800,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         var statement = Claims.SelectedClaim.Statement;
         SetWorkspace(_workspaceService.RemoveClaim(Workspace, Claims.SelectedClaim.Id));
-        StatusMessage = $"Deleted claim '{statement}'.";
+        SetTransientStatus($"Deleted claim '{statement}'.");
     }
 
     private void SaveHypothesis()
     {
         if (string.IsNullOrWhiteSpace(Hypotheses.Title) || string.IsNullOrWhiteSpace(Hypotheses.Statement))
         {
-            StatusMessage = "Hypothesis title and statement are required.";
+            SetStatus("Hypothesis title and statement are required.");
             return;
         }
 
@@ -804,7 +823,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             RegisterRecentChange(createdHypothesisId, "Hypothesis");
             EnqueueToast("Hypothesis Added", "Captured a new hypothesis.", "Success", "Hypothesis");
             CloseSpotlightComposer();
-            StatusMessage = "Added hypothesis.";
+            SetTransientStatus("Added hypothesis.");
             return;
         }
 
@@ -817,7 +836,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         SetWorkspace(_workspaceService.UpdateHypothesis(Workspace, hypothesisId, Hypotheses.Title, Hypotheses.Statement, status, confidence, Hypotheses.Notes));
         RegisterRecentChange(hypothesisId, "Hypothesis");
         EnqueueToast("Hypothesis Updated", "Saved the selected hypothesis.", "Success", "Hypothesis");
-        StatusMessage = "Updated selected hypothesis.";
+        SetTransientStatus("Updated selected hypothesis.");
     }
 
     private void DeleteSelectedHypothesis()
@@ -829,7 +848,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         var title = Hypotheses.SelectedHypothesis.Title;
         SetWorkspace(_workspaceService.RemoveHypothesis(Workspace, Hypotheses.SelectedHypothesis.Id));
-        StatusMessage = $"Deleted hypothesis '{title}'.";
+        SetTransientStatus($"Deleted hypothesis '{title}'.");
     }
 
     private void BeginNewEvidence()
@@ -838,21 +857,21 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         Evidence.BeginNewEvidence();
         IsQuickCaptureExpanded = false;
         OpenSpotlight(SpotlightComposerMode.Evidence);
-        StatusMessage = "Ready to add new evidence.";
+        SetTransientStatus("Evidence editor is ready.");
     }
 
     private void BeginNewEvidenceAssessment()
     {
         if (Evidence.SelectedEvidence is null)
         {
-            StatusMessage = "Select an evidence item first.";
+            SetStatus("Select an evidence item first.");
             return;
         }
 
         SelectSection(WorkbenchSection.Evidence);
         Evidence.BeginNewAssessment();
         OpenSpotlight(SpotlightComposerMode.Evidence);
-        StatusMessage = "Ready to add a new evidence assessment.";
+        SetTransientStatus("Evidence assessment editor is ready.");
     }
 
     private void SaveEvidence()
@@ -868,7 +887,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             RegisterRecentChange(createdEvidenceId, "Evidence");
             EnqueueToast("Evidence Added", "Captured a new evidence item.", "Success", "Evidence");
             CloseSpotlightComposer();
-            StatusMessage = "Added evidence.";
+            SetTransientStatus("Added evidence.");
             return;
         }
 
@@ -881,7 +900,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         SetWorkspace(_workspaceService.UpdateEvidence(Workspace, evidenceId, Evidence.EvidenceTitle, Evidence.EvidenceCitation, Evidence.EvidenceNotes, confidence));
         RegisterRecentChange(evidenceId, "Evidence");
         EnqueueToast("Evidence Updated", "Saved the selected evidence item.", "Success", "Evidence");
-        StatusMessage = "Updated selected evidence.";
+        SetTransientStatus("Updated selected evidence.");
     }
 
     private void DeleteSelectedEvidence()
@@ -893,7 +912,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         var title = Evidence.SelectedEvidence.Title;
         SetWorkspace(_workspaceService.RemoveEvidence(Workspace, Evidence.SelectedEvidence.Id));
-        StatusMessage = $"Deleted evidence '{title}'.";
+        SetTransientStatus($"Deleted evidence '{title}'.");
     }
 
     private void SaveEvidenceAssessment()
@@ -924,7 +943,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             SetWorkspace(updatedWorkspace);
             RegisterRecentChange(createdLinkId, "Evidence Assessment");
             EnqueueToast("Assessment Added", "Attached a new evidence assessment.", "Success", "Evidence Assessment");
-            StatusMessage = "Added evidence assessment.";
+            SetTransientStatus("Added evidence assessment.");
             return;
         }
 
@@ -941,7 +960,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             confidence));
         RegisterRecentChange(linkId, "Evidence Assessment");
         EnqueueToast("Assessment Updated", "Saved the selected evidence assessment.", "Success", "Evidence Assessment");
-        StatusMessage = "Updated selected evidence assessment.";
+        SetTransientStatus("Updated selected evidence assessment.");
     }
 
     private void DeleteSelectedEvidenceAssessment()
@@ -953,7 +972,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         SetWorkspace(_workspaceService.RemoveEvidenceAssessment(Workspace, Evidence.SelectedLink.Id));
         Evidence.BeginNewAssessment();
-        StatusMessage = "Deleted selected evidence assessment.";
+        SetTransientStatus("Deleted selected evidence assessment.");
     }
 
     private void OpenSpotlight(SpotlightComposerMode mode)
@@ -1470,6 +1489,42 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
     }
 
+    private async Task ClearStatusMessageAsync(CancellationTokenSource clearCts)
+    {
+        try
+        {
+            await Task.Delay(_transientStatusDuration, clearCts.Token);
+            if (!clearCts.IsCancellationRequested && ReferenceEquals(_statusClearCancellationTokenSource, clearCts))
+            {
+                StatusMessage = string.Empty;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_statusClearCancellationTokenSource, clearCts))
+            {
+                _statusClearCancellationTokenSource = null;
+            }
+
+            clearCts.Dispose();
+        }
+    }
+
+    private void CancelPendingStatusClear()
+    {
+        var clearCts = Interlocked.Exchange(ref _statusClearCancellationTokenSource, null);
+        if (clearCts is null)
+        {
+            return;
+        }
+
+        clearCts.Cancel();
+        clearCts.Dispose();
+    }
+
     private void ExecuteSafely(Action action)
     {
         try
@@ -1478,7 +1533,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            StatusMessage = ex.Message;
+            SetStatus(ex.Message);
         }
     }
 
@@ -1490,7 +1545,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            StatusMessage = ex.Message;
+            SetStatus(ex.Message);
         }
     }
 }

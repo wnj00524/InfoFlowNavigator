@@ -236,7 +236,7 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
-    public void BeginNewCommands_OpenCorrectSpotlightModeAndSection()
+    public void BeginNewCommands_OpenCorrectEditorModeAndSection()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
 
@@ -272,17 +272,21 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
-    public void QuickCapture_RoutesToEntityModeAndSection()
+    public void AddEntity_SelectsCreatedEntityAndClearsQuickAddForm()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
-        viewModel.IsQuickCaptureExpanded = true;
+        viewModel.ShowEntitiesCommand.Execute(null);
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
 
-        viewModel.BeginQuickAddEntityCommand.Execute(null);
+        viewModel.Entities.AddEntityCommand.Execute(null);
 
         Assert.Equal(WorkbenchSection.Entities, viewModel.SelectedSection?.Section);
-        Assert.True(viewModel.IsSpotlightComposerOpen);
-        Assert.Equal(SpotlightComposerMode.Entity, viewModel.SpotlightMode);
-        Assert.False(viewModel.IsQuickCaptureExpanded);
+        Assert.NotNull(viewModel.Entities.SelectedEntity);
+        Assert.Equal("Alice", viewModel.Entities.SelectedEntity!.Name);
+        Assert.Equal("Alice", viewModel.Entities.EditorName);
+        Assert.Equal(string.Empty, viewModel.Entities.NewEntityName);
+        Assert.Equal("Person", viewModel.Entities.NewEntityType);
     }
 
     [Fact]
@@ -300,21 +304,20 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
-    public void SaveActions_EnqueueToastFeedbackAndTrackRecentChange()
+    public async Task SuccessStatus_AutoClearsAfterTimeout()
     {
-        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
-        viewModel.Events.BeginNewEventCommand.Execute(null);
-        viewModel.Events.EventTitle = "Meeting";
-        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+        var viewModel = CreateShellViewModel(
+            new TrackingWorkspaceRepository(),
+            new FakeWorkspaceFileDialogService(),
+            TimeSpan.FromMilliseconds(50));
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
 
-        viewModel.Events.SaveEventCommand.Execute(null);
+        viewModel.Entities.AddEntityCommand.Execute(null);
 
-        Assert.True(viewModel.HasToasts);
-        Assert.NotEmpty(viewModel.Toasts);
-        Assert.Equal("Event", viewModel.RecentlyChangedItemKind);
-        Assert.NotNull(viewModel.RecentlyChangedItemId);
-        Assert.Equal("Event Added", viewModel.Toasts[0].Title);
-        Assert.False(viewModel.IsSpotlightComposerOpen);
+        Assert.Equal("Added entity to the workspace.", viewModel.StatusMessage);
+        await WaitForConditionAsync(() => string.IsNullOrEmpty(viewModel.StatusMessage));
+        Assert.Equal(string.Empty, viewModel.StatusMessage);
     }
 
     [Fact]
@@ -355,6 +358,87 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
+    public void SelectingEntity_PopulatesEntityEditorFields()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+
+        var selected = viewModel.Entities.Entities[0];
+        viewModel.Entities.SelectedEntity = selected;
+
+        Assert.Equal("Alice", viewModel.Entities.EditorName);
+        Assert.Equal("Person", viewModel.Entities.EditorType);
+    }
+
+    [Fact]
+    public void SelectingEvent_PopulatesEventEditorFields()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventNotes = "Observed";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+        viewModel.Events.SaveEventCommand.Execute(null);
+
+        var selected = viewModel.Events.Events[0];
+        viewModel.Events.SelectedEvent = selected;
+
+        Assert.Equal("Meeting", viewModel.Events.EventTitle);
+        Assert.Equal("Observed", viewModel.Events.EventNotes);
+        Assert.Equal("21/04/26 14:30", viewModel.Events.EventOccurredAtText);
+    }
+
+    [Fact]
+    public void SelectingClaim_PopulatesClaimEditorFields()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Claims.Statement = "Alice attended.";
+        viewModel.Claims.Notes = "Draft";
+        viewModel.Claims.SaveClaimCommand.Execute(null);
+
+        var selected = viewModel.Claims.Claims[0];
+        viewModel.Claims.SelectedClaim = selected;
+
+        Assert.Equal("Alice attended.", viewModel.Claims.Statement);
+        Assert.Equal("Draft", viewModel.Claims.Notes);
+    }
+
+    [Fact]
+    public void SelectingHypothesis_PopulatesHypothesisEditorFields()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Hypotheses.Title = "Attendance";
+        viewModel.Hypotheses.Statement = "Alice attended.";
+        viewModel.Hypotheses.Notes = "Working";
+        viewModel.Hypotheses.SaveHypothesisCommand.Execute(null);
+
+        var selected = viewModel.Hypotheses.Hypotheses[0];
+        viewModel.Hypotheses.SelectedHypothesis = selected;
+
+        Assert.Equal("Attendance", viewModel.Hypotheses.Title);
+        Assert.Equal("Alice attended.", viewModel.Hypotheses.Statement);
+        Assert.Equal("Working", viewModel.Hypotheses.Notes);
+    }
+
+    [Fact]
+    public void SelectingEvidence_PopulatesEvidenceEditorFields()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Evidence.EvidenceTitle = "Interview Summary";
+        viewModel.Evidence.EvidenceCitation = "INT-001";
+        viewModel.Evidence.EvidenceNotes = "Notes";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        var selected = viewModel.Evidence.EvidenceItems[0];
+        viewModel.Evidence.SelectedEvidence = selected;
+
+        Assert.Equal("Interview Summary", viewModel.Evidence.EvidenceTitle);
+        Assert.Equal("INT-001", viewModel.Evidence.EvidenceCitation);
+        Assert.Equal("Notes", viewModel.Evidence.EvidenceNotes);
+    }
+
+    [Fact]
     public void InsightPulse_RefreshesAfterMutations()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
@@ -381,6 +465,21 @@ public sealed class WorkspaceApplicationServiceTests
 
         viewModel.ToggleRightDrawerCommand.Execute(null);
         Assert.True(viewModel.IsRightDrawerOpen);
+    }
+
+    [Fact]
+    public void SectionNavigationCommands_SwitchModes()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        viewModel.ShowEventsCommand.Execute(null);
+        Assert.True(viewModel.IsEventsMode);
+
+        viewModel.ShowClaimsCommand.Execute(null);
+        Assert.True(viewModel.IsClaimsMode);
+
+        viewModel.ShowEvidenceCommand.Execute(null);
+        Assert.True(viewModel.IsEvidenceMode);
     }
 
     [Fact]
@@ -482,6 +581,34 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
+    public void EvidenceAssessment_CanTargetRelationship()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Entities.NewEntityName = "Contoso";
+        viewModel.Entities.NewEntityType = "Organization";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+
+        viewModel.Relationships.SelectedSource = viewModel.Relationships.EntityOptions.First(item => item.DisplayName.Contains("Alice", StringComparison.Ordinal));
+        viewModel.Relationships.SelectedTarget = viewModel.Relationships.EntityOptions.First(item => item.DisplayName.Contains("Contoso", StringComparison.Ordinal));
+        viewModel.Relationships.RelationshipType = "works_for";
+        viewModel.Relationships.SaveRelationshipCommand.Execute(null);
+
+        viewModel.Evidence.EvidenceTitle = "Employment record";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Relationship);
+        viewModel.Evidence.SelectedTarget = viewModel.Evidence.Targets.First();
+        viewModel.Evidence.SaveLinkCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.EvidenceLinks);
+        Assert.Equal(EvidenceLinkTargetKind.Relationship, viewModel.Workspace.EvidenceLinks[0].TargetKind);
+    }
+
+    [Fact]
     public void SaveEvent_WithInvalidOccurredAt_SetsClearValidationMessage()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
@@ -549,13 +676,15 @@ public sealed class WorkspaceApplicationServiceTests
 
     private static WorkspaceShellViewModel CreateShellViewModel(
         TrackingWorkspaceRepository repository,
-        FakeWorkspaceFileDialogService fileDialogService) =>
+        FakeWorkspaceFileDialogService fileDialogService,
+        TimeSpan? transientStatusDuration = null) =>
         new(
             new WorkspaceApplicationService(repository),
             new StubAnalysisService(),
             new StubReportGenerator(),
             new StubWorkspaceExportService(),
-            fileDialogService);
+            fileDialogService,
+            transientStatusDuration);
 
     private static async Task WaitForConditionAsync(Func<bool> condition)
     {
