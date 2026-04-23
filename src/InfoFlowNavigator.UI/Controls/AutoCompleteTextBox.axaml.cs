@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using InfoFlowNavigator.UI.ViewModels;
+using System.Threading;
 
 namespace InfoFlowNavigator.UI.Controls;
 
@@ -19,6 +20,7 @@ public partial class AutoCompleteTextBox : UserControl
         AvaloniaProperty.Register<AutoCompleteTextBox, string>(nameof(PlaceholderText), string.Empty);
 
     private readonly AutoCompleteTextBoxViewModel _viewModel = new();
+    private CancellationTokenSource? _lostFocusCancellation;
 
     public AutoCompleteTextBox()
     {
@@ -28,6 +30,7 @@ public partial class AutoCompleteTextBox : UserControl
         _viewModel.Text = Text ?? string.Empty;
         _viewModel.AllSuggestions = Suggestions?.ToList() ?? [];
         _viewModel.PlaceholderText = PlaceholderText ?? string.Empty;
+        DetachedFromVisualTree += OnDetachedFromVisualTree;
     }
 
     public string Text
@@ -108,13 +111,34 @@ public partial class AutoCompleteTextBox : UserControl
         }
     }
 
-    private void OnFocus(object? sender, RoutedEventArgs e) =>
+    private void OnFocus(object? sender, RoutedEventArgs e)
+    {
+        CancelPendingLostFocus();
         _viewModel.SetFocusState(true);
+    }
 
     private async void OnLostFocus(object? sender, RoutedEventArgs e)
     {
-        await Task.Delay(120);
-        if (!InputBox.IsFocused)
+        CancelPendingLostFocus();
+        var cancellation = new CancellationTokenSource();
+        _lostFocusCancellation = cancellation;
+
+        try
+        {
+            await Task.Delay(120, cancellation.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        if (!ReferenceEquals(_lostFocusCancellation, cancellation))
+        {
+            return;
+        }
+
+        _lostFocusCancellation = null;
+        if (InputBox?.IsFocused != true)
         {
             _viewModel.SetFocusState(false);
         }
@@ -150,6 +174,19 @@ public partial class AutoCompleteTextBox : UserControl
         {
             SuggestionList.ScrollIntoView(_viewModel.SelectedSuggestion);
         }
+    }
+
+    private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        CancelPendingLostFocus();
+        _viewModel.SetFocusState(false);
+    }
+
+    private void CancelPendingLostFocus()
+    {
+        _lostFocusCancellation?.Cancel();
+        _lostFocusCancellation?.Dispose();
+        _lostFocusCancellation = null;
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
