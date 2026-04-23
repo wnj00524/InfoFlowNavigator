@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:InfoFlowNavigator.UI.ViewModels"
+             x:Class="InfoFlowNavigator.UI.Controls.AutoCompleteTextBox"
+             x:DataType="vm:AutoCompleteTextBoxViewModel">
+  <UserControl.Styles>
+    <Style Selector="Border.autocomplete-popup">
+      <Setter Property="Background" Value="#09182A" />
+      <Setter Property="BorderBrush" Value="#2B4764" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="14" />
+      <Setter Property="Padding" Value="4" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,Auto">
+    <TextBox x:Name="InputBox"
+             Text="{Binding Text, Mode=TwoWay}"
+             PlaceholderText="{Binding PlaceholderText}"
+             KeyDown="OnKeyDown"
+             GotFocus="OnFocus"
+             LostFocus="OnLostFocus" />
+
+    <Border Grid.Row="1"
+            Classes="autocomplete-popup"
+            Margin="0,4,0,0"
+            IsVisible="{Binding IsDropDownOpen}">
+      <ListBox x:Name="SuggestionList"
+               BorderThickness="0"
+               Focusable="False"
+               ItemsSource="{Binding FilteredSuggestions}"
+               SelectedItem="{Binding SelectedSuggestion, Mode=TwoWay}"
+               MaxHeight="180"
+               PointerPressed="OnSuggestionClicked" />
+    </Border>
+  </Grid>
+</UserControl>

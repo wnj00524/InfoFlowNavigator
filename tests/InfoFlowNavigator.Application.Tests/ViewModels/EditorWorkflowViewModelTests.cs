@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using InfoFlowNavigator.Domain.Claims;
+using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.UI.ViewModels;
@@ -25,7 +26,7 @@ public sealed class EditorWorkflowViewModelTests
     [Fact]
     public void BeginNewClaim_ClearsEditorState()
     {
-        var viewModel = new ClaimsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { });
+        var viewModel = new ClaimsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
         viewModel.SelectedClaim = new ClaimSummaryViewModel(
             Guid.NewGuid(),
             "Claim text",
@@ -238,16 +239,16 @@ public sealed class EditorWorkflowViewModelTests
         viewModel.Refresh([new EventSummaryViewModel(Guid.NewGuid(), "Meeting", DateTimeOffset.UtcNow, null, null, [])], null);
         viewModel.SelectedEvent = viewModel.Events[0];
         viewModel.UpdateParticipants(
-            [new EventParticipantSummaryViewModel(participantId, entityId, "Alice (Person)", "attendee", 0.8, null)],
+            [new EventParticipantSummaryViewModel(participantId, entityId, "Alice (Person)", EventEntityLinkCategory.Participant, "Attendee", 0.8, null)],
             [new EntityOptionViewModel(entityId, "Alice (Person)")]);
 
-        Assert.Equal("Add Participant", viewModel.ParticipantPrimaryActionLabel);
+        Assert.Equal("Add Link", viewModel.ParticipantPrimaryActionLabel);
         Assert.False(viewModel.CanRemoveParticipant);
 
         viewModel.SelectedParticipant = viewModel.Participants[0];
 
         Assert.True(viewModel.IsEditingParticipant);
-        Assert.Equal("Save Participant", viewModel.ParticipantPrimaryActionLabel);
+        Assert.Equal("Save Link", viewModel.ParticipantPrimaryActionLabel);
         Assert.True(viewModel.CanRemoveParticipant);
     }
 
@@ -264,11 +265,15 @@ public sealed class EditorWorkflowViewModelTests
         viewModel.Refresh([new EventSummaryViewModel(eventId, "Meeting", DateTimeOffset.UtcNow, null, null, [])], eventId);
         viewModel.UpdateParticipants([], [new EntityOptionViewModel(entityId, "Alice (Person)")]);
         Assert.False(viewModel.CanSaveParticipant);
-        Assert.Equal("Select a participant.", viewModel.ParticipantValidationMessage);
+        Assert.Equal("Select an entity to link.", viewModel.ParticipantValidationMessage);
 
         viewModel.SelectedParticipantEntity = viewModel.ParticipantEntities[0];
+        Assert.Equal("Participant is ready to save.", viewModel.ParticipantValidationMessage);
+        Assert.True(viewModel.CanSaveParticipant);
+
+        viewModel.SelectedParticipantCategory = viewModel.ParticipantCategories.First(item => item.Category == EventEntityLinkCategory.Other);
         Assert.False(viewModel.CanSaveParticipant);
-        Assert.Equal("Participant role is required.", viewModel.ParticipantValidationMessage);
+        Assert.Equal("Add a short detail for Other links.", viewModel.ParticipantValidationMessage);
 
         viewModel.ParticipantRole = "attendee";
         Assert.True(viewModel.CanSaveParticipant);
@@ -287,10 +292,93 @@ public sealed class EditorWorkflowViewModelTests
         Assert.Contains("Content=\"New Claim...\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"New Hypothesis...\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"New Evidence...\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Target Type\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("WindowDecorations=\"None\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("ColumnDefinitions=\"2.3*,1.2*,1*\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<WrapPanel />", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Claim Details\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Link Entities To Event\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding InsightPulseButtonLabel}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Evidence Assessment Editor\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PlaceholderText=\"Search targets by name, type, or statement\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"New Assessment\"", xaml, StringComparison.Ordinal);
         Assert.Contains("<view:SpotlightComposer", xaml, StringComparison.Ordinal);
         Assert.Contains("<view:InsightPulseBar", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ComboBox", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ClaimsViewModel_TargetKindChangeRequestsUpdatedTargets()
+    {
+        ClaimTargetKind? changedKind = null;
+        var viewModel = new ClaimsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, kind => changedKind = kind);
+
+        viewModel.SelectedTargetKind = viewModel.TargetKinds.First(item => item.Kind == ClaimTargetKind.Relationship);
+
+        Assert.Equal(ClaimTargetKind.Relationship, changedKind);
+    }
+
+    [Fact]
+    public void EvidenceViewModel_TargetSearchFiltersSuggestions()
+    {
+        var personId = Guid.NewGuid();
+        var relationshipId = Guid.NewGuid();
+        var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
+        viewModel.Refresh(
+            [new EvidenceSummaryViewModel(Guid.NewGuid(), "Memo", "CIT-1", null, 0.8)],
+            null,
+            [],
+            [new EvidenceLinkTargetKindOptionViewModel(EvidenceLinkTargetKind.Relationship, "Relationship")],
+            [
+                new TargetOptionViewModel(personId, "Alice (Person)"),
+                new TargetOptionViewModel(relationshipId, "Alice -> works_for -> Contoso")
+            ],
+            null);
+
+        viewModel.TargetSearchText = "works_for";
+
+        Assert.Single(viewModel.FilteredTargets);
+        Assert.Equal(relationshipId, viewModel.FilteredTargets[0].Id);
+    }
+
+    [Fact]
+    public void EvidenceViewModel_SelectingTarget_ClearsSuggestions()
+    {
+        var personId = Guid.NewGuid();
+        var relationshipId = Guid.NewGuid();
+        var viewModel = new EvidenceViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
+        viewModel.Refresh(
+            [new EvidenceSummaryViewModel(Guid.NewGuid(), "Memo", "CIT-1", null, 0.8)],
+            null,
+            [],
+            [new EvidenceLinkTargetKindOptionViewModel(EvidenceLinkTargetKind.Relationship, "Relationship")],
+            [
+                new TargetOptionViewModel(personId, "Alice (Person)"),
+                new TargetOptionViewModel(relationshipId, "Alice -> works_for -> Contoso")
+            ],
+            null);
+
+        viewModel.TargetSearchText = "works_for";
+        viewModel.SelectedTarget = viewModel.FilteredTargets[0];
+
+        Assert.Equal("Alice -> works_for -> Contoso", viewModel.TargetSearchText);
+        Assert.Empty(viewModel.FilteredTargets);
+    }
+
+    [Fact]
+    public void ClaimsViewModel_SelectingAutocompleteTargetClearsSuggestions()
+    {
+        var targetId = Guid.NewGuid();
+        var viewModel = new ClaimsViewModel(new NoOpCommand(), new NoOpCommand(), new NoOpCommand(), _ => { }, _ => { });
+        viewModel.UpdateTargets(
+            [
+                new TargetOptionViewModel(targetId, "Alice -> works_for -> Contoso")
+            ]);
+
+        viewModel.TargetPicker.SearchText = "works_for";
+        viewModel.TargetPicker.SelectedItem = viewModel.TargetPicker.Suggestions[0];
+
+        Assert.Equal("Alice -> works_for -> Contoso", viewModel.TargetPicker.SearchText);
+        Assert.False(viewModel.TargetPicker.HasSuggestions);
     }
 
     [Fact]
@@ -303,12 +391,12 @@ public sealed class EditorWorkflowViewModelTests
             "Notes",
             0.8,
             [
-                new EventParticipantRoleGroupViewModel("attendee", ["Alice (Person)", "Bob (Person)"]),
-                new EventParticipantRoleGroupViewModel("organizer", ["Carol (Person)"])
+                new EventParticipantRoleGroupViewModel(EventEntityLinkCategory.Participant, "Participants", ["Alice (Person)", "Bob (Person)"]),
+                new EventParticipantRoleGroupViewModel(EventEntityLinkCategory.Organization, "Organizations", ["Carol (Person)"])
             ]);
 
         Assert.True(summary.HasParticipants);
-        Assert.Equal("3 linked participant(s)", summary.ParticipantSummary);
+        Assert.Equal($"2 participants {Convert.ToChar(0x00B7)} 1 organization", summary.ParticipantSummary);
         Assert.Equal("Alice (Person), Bob (Person)", summary.ParticipantRoleGroups[0].AttendeeList);
     }
 

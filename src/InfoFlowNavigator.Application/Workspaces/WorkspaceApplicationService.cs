@@ -116,6 +116,21 @@ public sealed class WorkspaceApplicationService
         AnalysisWorkspace workspace,
         Guid eventId,
         Guid entityId,
+        EventEntityLinkCategory category,
+        string? roleDetail = null,
+        double? confidence = null,
+        string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var participant = EventParticipant.Create(eventId, entityId, category, roleDetail, confidence, notes);
+        return workspace.AddEventParticipant(participant);
+    }
+
+    public AnalysisWorkspace AddEventParticipant(
+        AnalysisWorkspace workspace,
+        Guid eventId,
+        Guid entityId,
         string role,
         double? confidence = null,
         string? notes = null)
@@ -151,6 +166,22 @@ public sealed class WorkspaceApplicationService
     public AnalysisWorkspace UpdateEventParticipant(
         AnalysisWorkspace workspace,
         Guid participantId,
+        EventEntityLinkCategory category,
+        string? roleDetail = null,
+        double? confidence = null,
+        string? notes = null)
+    {
+        ArgumentNullException.ThrowIfNull(workspace);
+
+        var existing = workspace.EventParticipants.FirstOrDefault(participant => participant.Id == participantId)
+            ?? throw new InvalidOperationException($"Event participant '{participantId}' does not exist in the workspace.");
+
+        return workspace.UpdateEventParticipant(existing.Update(category, roleDetail, confidence, notes));
+    }
+
+    public AnalysisWorkspace UpdateEventParticipant(
+        AnalysisWorkspace workspace,
+        Guid participantId,
         string role,
         double? confidence = null,
         string? notes = null)
@@ -175,7 +206,8 @@ public sealed class WorkspaceApplicationService
 
         return workspace.EventParticipants
             .Where(participant => participant.EventId == eventId)
-            .OrderBy(participant => participant.Role, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(participant => participant.Category)
+            .ThenBy(participant => participant.Role, StringComparer.OrdinalIgnoreCase)
             .ThenBy(participant => participant.EntityId)
             .ToArray();
     }

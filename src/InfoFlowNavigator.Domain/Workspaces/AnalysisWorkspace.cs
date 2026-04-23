@@ -247,9 +247,10 @@ public sealed record AnalysisWorkspace(
         if (EventParticipants.Any(existing =>
                 existing.EventId == participant.EventId &&
                 existing.EntityId == participant.EntityId &&
-                string.Equals(existing.Role, participant.Role, StringComparison.OrdinalIgnoreCase)))
+                existing.Category == participant.Category &&
+                string.Equals(existing.RoleDetail ?? string.Empty, participant.RoleDetail ?? string.Empty, StringComparison.OrdinalIgnoreCase)))
         {
-            throw new InvalidOperationException("A participant with the same event, entity, and role already exists.");
+            throw new InvalidOperationException("An event link with the same event, entity, category, and detail already exists.");
         }
 
         return this with
@@ -282,9 +283,10 @@ public sealed record AnalysisWorkspace(
                 existing.Id != participant.Id &&
                 existing.EventId == participant.EventId &&
                 existing.EntityId == participant.EntityId &&
-                string.Equals(existing.Role, participant.Role, StringComparison.OrdinalIgnoreCase)))
+                existing.Category == participant.Category &&
+                string.Equals(existing.RoleDetail ?? string.Empty, participant.RoleDetail ?? string.Empty, StringComparison.OrdinalIgnoreCase)))
         {
-            throw new InvalidOperationException("A participant with the same event, entity, and role already exists.");
+            throw new InvalidOperationException("An event link with the same event, entity, category, and detail already exists.");
         }
 
         return this with

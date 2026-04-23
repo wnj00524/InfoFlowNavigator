@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Application.Reporting;
@@ -25,9 +26,50 @@ public partial class MainWindow : Window
     public MainWindow(WorkspaceShellViewModel viewModel)
     {
         InitializeComponent();
-        WindowState = WindowState.Maximized;
+        if (!Design.IsDesignMode)
+        {
+            WindowState = WindowState.FullScreen;
+        }
+
+        KeyDown += OnWindowKeyDown;
         DataContext = viewModel;
     }
+
+    private void OnHeaderPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!Design.IsDesignMode && WindowState != WindowState.FullScreen)
+        {
+            BeginMoveDrag(e);
+        }
+    }
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.F11)
+        {
+            ToggleImmersiveMode();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && WindowState == WindowState.FullScreen)
+        {
+            WindowState = WindowState.Maximized;
+            e.Handled = true;
+        }
+    }
+
+    private void OnToggleImmersiveClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => ToggleImmersiveMode();
+
+    private void OnMinimizeClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void OnCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        Close();
+    }
+
+    private void ToggleImmersiveMode() =>
+        WindowState = WindowState == WindowState.FullScreen ? WindowState.Maximized : WindowState.FullScreen;
 
     private sealed class DesignTimeWorkspaceRepository : IWorkspaceRepository
     {

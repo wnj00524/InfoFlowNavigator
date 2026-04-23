@@ -3,6 +3,7 @@ using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Application.Reporting;
 using InfoFlowNavigator.Application.Workspaces;
 using InfoFlowNavigator.Domain.Claims;
+using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.Domain.Workspaces;
@@ -272,6 +273,28 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
+    public void SelectingClaimTargetKind_PopulatesMatchingTargets()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Entities.NewEntityName = "Contoso";
+        viewModel.Entities.NewEntityType = "Organization";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Relationships.SelectedSource = viewModel.Relationships.EntityOptions.First(item => item.DisplayName.Contains("Alice", StringComparison.Ordinal));
+        viewModel.Relationships.SelectedTarget = viewModel.Relationships.EntityOptions.First(item => item.DisplayName.Contains("Contoso", StringComparison.Ordinal));
+        viewModel.Relationships.RelationshipType = "works_for";
+        viewModel.Relationships.SaveRelationshipCommand.Execute(null);
+
+        viewModel.Claims.BeginNewClaimCommand.Execute(null);
+        viewModel.Claims.SelectedTargetKind = viewModel.Claims.TargetKinds.First(item => item.Kind == ClaimTargetKind.Relationship);
+
+        Assert.Single(viewModel.Claims.Targets);
+        Assert.Contains("works_for", viewModel.Claims.Targets[0].DisplayName, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AddEntity_SelectsCreatedEntityAndClearsQuickAddForm()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
@@ -443,6 +466,7 @@ public sealed class WorkspaceApplicationServiceTests
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
 
+        Assert.False(viewModel.IsInsightPulseOpen);
         Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Start With Entities");
 
         viewModel.Claims.BeginNewClaimCommand.Execute(null);
@@ -451,6 +475,20 @@ public sealed class WorkspaceApplicationServiceTests
 
         Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Build Chronology");
         Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Promote Claims Into Hypotheses");
+    }
+
+    [Fact]
+    public void ToggleInsightPulseCommand_FlipsPulseVisibility()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        Assert.False(viewModel.IsInsightPulseOpen);
+
+        viewModel.ToggleInsightPulseCommand.Execute(null);
+        Assert.True(viewModel.IsInsightPulseOpen);
+
+        viewModel.ToggleInsightPulseCommand.Execute(null);
+        Assert.False(viewModel.IsInsightPulseOpen);
     }
 
     [Fact]
@@ -609,6 +647,27 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
+    public void EvidenceAssessment_CanTargetClaim()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        viewModel.Claims.Statement = "Alice attended the briefing.";
+        viewModel.Claims.SaveClaimCommand.Execute(null);
+
+        viewModel.Evidence.EvidenceTitle = "Briefing transcript";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Claim);
+        viewModel.Evidence.TargetPicker.SearchText = "Alice attended";
+        viewModel.Evidence.TargetPicker.SelectedItem = viewModel.Evidence.TargetPicker.Suggestions.First();
+        viewModel.Evidence.SaveLinkCommand.Execute(null);
+
+        Assert.Single(viewModel.Workspace.EvidenceLinks);
+        Assert.Equal(EvidenceLinkTargetKind.Claim, viewModel.Workspace.EvidenceLinks[0].TargetKind);
+        Assert.False(viewModel.Evidence.TargetPicker.HasSuggestions);
+    }
+
+    [Fact]
     public void SaveEvent_WithInvalidOccurredAt_SetsClearValidationMessage()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
@@ -633,11 +692,11 @@ public sealed class WorkspaceApplicationServiceTests
         viewModel.Events.AddParticipantCommand.Execute(null);
 
         Assert.Empty(viewModel.Workspace.EventParticipants);
-        Assert.Equal("Select a participant.", viewModel.StatusMessage);
+        Assert.Equal("Select an entity to link.", viewModel.StatusMessage);
     }
 
     [Fact]
-    public void AddEventParticipant_WithEmptyRole_IsBlocked()
+    public void AddEventParticipant_WithOtherCategoryAndNoDetail_IsBlocked()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
         viewModel.Entities.NewEntityName = "Alice";
@@ -647,11 +706,12 @@ public sealed class WorkspaceApplicationServiceTests
         viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
         viewModel.Events.SaveEventCommand.Execute(null);
         viewModel.Events.SelectedParticipantEntity = viewModel.Events.ParticipantEntities[0];
+        viewModel.Events.SelectedParticipantCategory = viewModel.Events.ParticipantCategories.First(item => item.Category == EventEntityLinkCategory.Other);
 
         viewModel.Events.AddParticipantCommand.Execute(null);
 
         Assert.Empty(viewModel.Workspace.EventParticipants);
-        Assert.Equal("Participant role is required.", viewModel.StatusMessage);
+        Assert.Equal("Add a short detail for Other links.", viewModel.StatusMessage);
     }
 
     [Fact]
@@ -670,8 +730,10 @@ public sealed class WorkspaceApplicationServiceTests
         viewModel.Events.AddParticipantCommand.Execute(null);
 
         Assert.Single(viewModel.Workspace.EventParticipants);
-        Assert.Equal("Added event participant.", viewModel.StatusMessage);
+        Assert.Equal("Added event link.", viewModel.StatusMessage);
         Assert.Single(viewModel.Events.Participants);
+        Assert.Equal(EventEntityLinkCategory.Participant, viewModel.Workspace.EventParticipants[0].Category);
+        Assert.Equal("attendee", viewModel.Workspace.EventParticipants[0].RoleDetail);
     }
 
     private static WorkspaceShellViewModel CreateShellViewModel(

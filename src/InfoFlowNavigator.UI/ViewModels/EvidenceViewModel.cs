@@ -16,10 +16,6 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
     private string _evidenceNotes = string.Empty;
     private string _evidenceConfidenceText = string.Empty;
     private EvidenceLinkSummaryViewModel? _selectedLink;
-    private EvidenceLinkTargetKindOptionViewModel? _selectedTargetKind;
-    private TargetOptionViewModel? _selectedTarget;
-    private EvidenceRelationOptionViewModel? _selectedRelation;
-    private EvidenceStrengthOptionViewModel? _selectedStrength;
     private string _linkNotes = string.Empty;
     private string _linkConfidenceText = string.Empty;
 
@@ -41,6 +37,23 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
         DeleteLinkCommand = deleteLinkCommand;
         _selectionChanged = selectionChanged;
         _targetKindChanged = targetKindChanged;
+        TargetKindPicker = new SearchSelectionViewModel<EvidenceLinkTargetKindOptionViewModel>(
+            item => item.DisplayName,
+            OnSelectedTargetKindChanged);
+        TargetPicker = new SearchSelectionViewModel<TargetOptionViewModel>(
+            item => item.DisplayName,
+            value =>
+            {
+                OnPropertyChanged(nameof(SelectedTarget));
+                OnPropertyChanged(nameof(TargetSearchText));
+                OnPropertyChanged(nameof(FilteredTargets));
+            });
+        RelationPicker = new SearchSelectionViewModel<EvidenceRelationOptionViewModel>(
+            item => item.DisplayName,
+            _ => OnPropertyChanged(nameof(SelectedRelation)));
+        StrengthPicker = new SearchSelectionViewModel<EvidenceStrengthOptionViewModel>(
+            item => item.DisplayName,
+            _ => OnPropertyChanged(nameof(SelectedStrength)));
 
         foreach (var relation in new[]
                  {
@@ -64,8 +77,8 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
             Strengths.Add(strength);
         }
 
-        SelectedRelation = Relations.FirstOrDefault();
-        SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate);
+        RelationPicker.ReplaceItems(Relations, Relations.FirstOrDefault());
+        StrengthPicker.ReplaceItems(Strengths, Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate));
     }
 
     protected override string ItemTypeDisplayName => "Evidence";
@@ -85,6 +98,14 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
     public ObservableCollection<EvidenceRelationOptionViewModel> Relations { get; } = [];
 
     public ObservableCollection<EvidenceStrengthOptionViewModel> Strengths { get; } = [];
+
+    public SearchSelectionViewModel<EvidenceLinkTargetKindOptionViewModel> TargetKindPicker { get; }
+
+    public SearchSelectionViewModel<TargetOptionViewModel> TargetPicker { get; }
+
+    public SearchSelectionViewModel<EvidenceRelationOptionViewModel> RelationPicker { get; }
+
+    public SearchSelectionViewModel<EvidenceStrengthOptionViewModel> StrengthPicker { get; }
 
     public ICommand BeginNewEvidenceCommand { get; }
 
@@ -159,32 +180,32 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
 
     public EvidenceLinkTargetKindOptionViewModel? SelectedTargetKind
     {
-        get => _selectedTargetKind;
-        set
-        {
-            if (SetProperty(ref _selectedTargetKind, value) && value is not null && !_isRefreshingLinkEditor)
-            {
-                _targetKindChanged(value.Kind);
-            }
-        }
+        get => TargetKindPicker.SelectedItem;
+        set => TargetKindPicker.SelectedItem = value;
     }
 
     public TargetOptionViewModel? SelectedTarget
     {
-        get => _selectedTarget;
-        set => SetProperty(ref _selectedTarget, value);
+        get => TargetPicker.SelectedItem;
+        set => TargetPicker.SelectedItem = value;
+    }
+
+    public string TargetSearchText
+    {
+        get => TargetPicker.SearchText;
+        set => TargetPicker.SearchText = value;
     }
 
     public EvidenceRelationOptionViewModel? SelectedRelation
     {
-        get => _selectedRelation;
-        set => SetProperty(ref _selectedRelation, value);
+        get => RelationPicker.SelectedItem;
+        set => RelationPicker.SelectedItem = value;
     }
 
     public EvidenceStrengthOptionViewModel? SelectedStrength
     {
-        get => _selectedStrength;
-        set => SetProperty(ref _selectedStrength, value);
+        get => StrengthPicker.SelectedItem;
+        set => StrengthPicker.SelectedItem = value;
     }
 
     public string LinkNotes
@@ -200,6 +221,8 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
     }
 
     public bool IsEmpty => EvidenceItems.Count == 0;
+
+    public IReadOnlyList<TargetOptionViewModel> FilteredTargets => TargetPicker.Suggestions.ToArray();
 
     public string LinkHint => SelectedEvidence is null
         ? "Select an evidence item to add assessments."
@@ -221,6 +244,10 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
         ReplaceCollection(TargetKinds, targetKinds);
         ReplaceCollection(Targets, targets);
         ReplaceCollection(LinkedTargets, linkedTargets);
+        TargetKindPicker.ReplaceItems(TargetKinds, SelectedTargetKind ?? TargetKinds.FirstOrDefault());
+        TargetPicker.ReplaceItems(Targets, SelectedTarget);
+        RelationPicker.ReplaceItems(Relations, SelectedRelation ?? Relations.FirstOrDefault());
+        StrengthPicker.ReplaceItems(Strengths, SelectedStrength ?? Strengths.FirstOrDefault(item => item.Strength == EvidenceStrength.Moderate));
 
         SelectedEvidence = selectedEvidenceId is null ? null : EvidenceItems.FirstOrDefault(item => item.Id == selectedEvidenceId);
 
@@ -265,9 +292,11 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
     {
         var selectedTargetId = SelectedTarget?.Id;
         ReplaceCollection(Targets, targets);
-        SelectedTarget = selectedTargetId is null
-            ? Targets.FirstOrDefault()
-            : Targets.FirstOrDefault(item => item.Id == selectedTargetId) ?? Targets.FirstOrDefault();
+        var resolvedTarget = selectedTargetId is null
+            ? null
+            : Targets.FirstOrDefault(item => item.Id == selectedTargetId);
+        TargetPicker.ReplaceItems(Targets, resolvedTarget);
+        OnPropertyChanged(nameof(FilteredTargets));
     }
 
     public void BeginNewAssessment()
@@ -345,6 +374,18 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
         finally
         {
             _isRefreshingLinkEditor = false;
+        }
+    }
+
+    private void OnSelectedTargetKindChanged(EvidenceLinkTargetKindOptionViewModel? value)
+    {
+        OnPropertyChanged(nameof(SelectedTargetKind));
+        OnPropertyChanged(nameof(TargetSearchText));
+        OnPropertyChanged(nameof(FilteredTargets));
+        if (value is not null && !_isRefreshingLinkEditor)
+        {
+            TargetPicker.Clear();
+            _targetKindChanged(value.Kind);
         }
     }
 

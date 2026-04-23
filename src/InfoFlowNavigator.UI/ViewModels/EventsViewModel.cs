@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using InfoFlowNavigator.Domain.Events;
 
 namespace InfoFlowNavigator.UI.ViewModels;
 
@@ -8,12 +9,11 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
     private readonly Action<EventSummaryViewModel?> _selectionChanged;
     private EventSummaryViewModel? _selectedEvent;
     private EventParticipantSummaryViewModel? _selectedParticipant;
-    private EntityOptionViewModel? _selectedParticipantEntity;
     private string _eventTitle = string.Empty;
     private string _eventOccurredAtText = string.Empty;
     private string _eventNotes = string.Empty;
     private string _eventConfidenceText = string.Empty;
-    private string _participantRole = string.Empty;
+    private string _participantRoleDetail = string.Empty;
     private string _participantConfidenceText = string.Empty;
     private string _participantNotes = string.Empty;
 
@@ -31,6 +31,26 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         AddParticipantCommand = addParticipantCommand;
         RemoveParticipantCommand = removeParticipantCommand;
         _selectionChanged = selectionChanged;
+        ParticipantEntityPicker = new SearchSelectionViewModel<EntityOptionViewModel>(
+            item => item.DisplayName,
+            value =>
+            {
+                OnPropertyChanged(nameof(SelectedParticipantEntity));
+                RaiseParticipantStateChanged();
+            });
+        ParticipantCategoryPicker = new SearchSelectionViewModel<EventEntityLinkCategoryOptionViewModel>(
+            item => item.DisplayName,
+            value =>
+            {
+                OnPropertyChanged(nameof(SelectedParticipantCategory));
+                RaiseParticipantStateChanged();
+            });
+        foreach (var option in CreateCategoryOptions())
+        {
+            ParticipantCategories.Add(option);
+        }
+
+        ParticipantCategoryPicker.ReplaceItems(ParticipantCategories, ParticipantCategories.FirstOrDefault());
     }
 
     protected override string ItemTypeDisplayName => "Event";
@@ -48,6 +68,12 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
     public ObservableCollection<EventParticipantSummaryViewModel> Participants { get; } = [];
 
     public ObservableCollection<EntityOptionViewModel> ParticipantEntities { get; } = [];
+
+    public ObservableCollection<EventEntityLinkCategoryOptionViewModel> ParticipantCategories { get; } = [];
+
+    public SearchSelectionViewModel<EntityOptionViewModel> ParticipantEntityPicker { get; }
+
+    public SearchSelectionViewModel<EventEntityLinkCategoryOptionViewModel> ParticipantCategoryPicker { get; }
 
     public ICommand BeginNewEventCommand { get; }
 
@@ -110,10 +136,22 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
 
     public EntityOptionViewModel? SelectedParticipantEntity
     {
-        get => _selectedParticipantEntity;
+        get => ParticipantEntityPicker.SelectedItem;
+        set => ParticipantEntityPicker.SelectedItem = value;
+    }
+
+    public EventEntityLinkCategoryOptionViewModel? SelectedParticipantCategory
+    {
+        get => ParticipantCategoryPicker.SelectedItem;
+        set => ParticipantCategoryPicker.SelectedItem = value;
+    }
+
+    public string ParticipantRoleDetail
+    {
+        get => _participantRoleDetail;
         set
         {
-            if (SetProperty(ref _selectedParticipantEntity, value))
+            if (SetProperty(ref _participantRoleDetail, value))
             {
                 RaiseParticipantStateChanged();
             }
@@ -122,14 +160,8 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
 
     public string ParticipantRole
     {
-        get => _participantRole;
-        set
-        {
-            if (SetProperty(ref _participantRole, value))
-            {
-                RaiseParticipantStateChanged();
-            }
-        }
+        get => ParticipantRoleDetail;
+        set => ParticipantRoleDetail = value;
     }
 
     public string ParticipantConfidenceText
@@ -148,12 +180,13 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
 
     public bool IsEditingParticipant => SelectedParticipant is not null;
 
-    public string ParticipantPrimaryActionLabel => IsEditingParticipant ? "Save Participant" : "Add Participant";
+    public string ParticipantPrimaryActionLabel => IsEditingParticipant ? "Save Link" : "Add Link";
 
     public bool CanSaveParticipant =>
         SelectedEvent is not null &&
         SelectedParticipantEntity is not null &&
-        !string.IsNullOrWhiteSpace(ParticipantRole);
+        SelectedParticipantCategory is not null &&
+        (SelectedParticipantCategory.Category != EventEntityLinkCategory.Other || !string.IsNullOrWhiteSpace(ParticipantRoleDetail));
 
     public bool ShowParticipantValidationMessage => !CanSaveParticipant;
 
@@ -161,9 +194,9 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         SelectedEvent is null
             ? "Select an event first."
             : SelectedParticipantEntity is null
-                ? "Select a participant."
-                : string.IsNullOrWhiteSpace(ParticipantRole)
-                    ? "Participant role is required."
+                ? "Select an entity to link."
+                : SelectedParticipantCategory?.Category == EventEntityLinkCategory.Other && string.IsNullOrWhiteSpace(ParticipantRoleDetail)
+                    ? "Add a short detail for Other links."
                     : "Participant is ready to save.";
 
     public bool CanRemoveParticipant => SelectedParticipant is not null;
@@ -196,6 +229,8 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         var selectedParticipantId = SelectedParticipant?.Id;
         ReplaceCollection(Participants, participants);
         ReplaceCollection(ParticipantEntities, entities);
+        ParticipantEntityPicker.ReplaceItems(ParticipantEntities, SelectedParticipantEntity);
+        ParticipantCategoryPicker.ReplaceItems(ParticipantCategories, SelectedParticipantCategory ?? ParticipantCategories.FirstOrDefault());
         SelectedParticipant = selectedParticipantId is null ? null : Participants.FirstOrDefault(item => item.Id == selectedParticipantId);
         if (SelectedParticipant is null)
         {
@@ -236,15 +271,17 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
         }
 
         SelectedParticipantEntity = ParticipantEntities.FirstOrDefault(item => item.Id == participant.EntityId);
-        ParticipantRole = participant.Role;
+        SelectedParticipantCategory = ParticipantCategories.FirstOrDefault(item => item.Category == participant.Category) ?? ParticipantCategories.FirstOrDefault();
+        ParticipantRoleDetail = participant.RoleDetail ?? string.Empty;
         ParticipantConfidenceText = participant.Confidence?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
         ParticipantNotes = participant.Notes ?? string.Empty;
     }
 
     public void ClearParticipantEditor()
     {
-        SelectedParticipantEntity = null;
-        ParticipantRole = string.Empty;
+        ParticipantEntityPicker.Clear();
+        ParticipantCategoryPicker.ReplaceItems(ParticipantCategories, ParticipantCategories.FirstOrDefault());
+        ParticipantRoleDetail = string.Empty;
         ParticipantConfidenceText = string.Empty;
         ParticipantNotes = string.Empty;
         RaiseParticipantStateChanged();
@@ -268,4 +305,9 @@ public sealed class EventsViewModel : EditorWorkflowViewModel
             collection.Add(item);
         }
     }
+
+    private static IReadOnlyList<EventEntityLinkCategoryOptionViewModel> CreateCategoryOptions() =>
+        Enum.GetValues<EventEntityLinkCategory>()
+            .Select(category => new EventEntityLinkCategoryOptionViewModel(category, EventParticipant.GetCategoryDisplayName(category)))
+            .ToArray();
 }

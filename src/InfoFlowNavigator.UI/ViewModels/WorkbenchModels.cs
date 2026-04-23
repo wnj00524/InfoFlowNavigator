@@ -1,5 +1,6 @@
 using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Domain.Claims;
+using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 
@@ -60,12 +61,19 @@ public sealed record EventSummaryViewModel(
     public string TimelineLabel => OccurredAtUtc?.ToString("yyyy-MM-dd HH:mm 'UTC'") ?? "Undated";
     public bool HasParticipants => ParticipantRoleGroups.Count > 0;
     public string ParticipantSummary => HasParticipants
-        ? $"{ParticipantRoleGroups.Sum(group => group.Attendees.Count)} linked participant(s)"
-        : "No linked participants yet.";
+        ? string.Join(" · ", ParticipantRoleGroups.Select(group => group.SummaryLabel))
+        : "No linked entities yet.";
 }
 
-public sealed record EventParticipantRoleGroupViewModel(string Role, IReadOnlyList<string> Attendees)
+public sealed record EventParticipantRoleGroupViewModel(
+    EventEntityLinkCategory Category,
+    string Title,
+    IReadOnlyList<string> Attendees)
 {
+    public string ShortTitle => Title.EndsWith("s", StringComparison.OrdinalIgnoreCase) ? Title[..^1] : Title;
+    public int Count => Attendees.Count;
+    public string CountLabel => $"{Title} ({Count})";
+    public string SummaryLabel => $"{Count} {(Count == 1 ? ShortTitle : Title).ToLowerInvariant()}";
     public string AttendeeList => string.Join(", ", Attendees);
 }
 
@@ -73,15 +81,20 @@ public sealed record EventParticipantSummaryViewModel(
     Guid Id,
     Guid EntityId,
     string EntityDisplayName,
-    string Role,
+    EventEntityLinkCategory Category,
+    string? RoleDetail,
     double? Confidence,
     string? Notes)
 {
-    public string DisplayName => $"{EntityDisplayName} as {Role}";
+    public string CategoryDisplayName => EventParticipant.GetCategoryDisplayName(Category);
+    public string Role => string.IsNullOrWhiteSpace(RoleDetail) ? CategoryDisplayName : $"{CategoryDisplayName}: {RoleDetail}";
+    public string DisplayName => $"{EntityDisplayName} · {Role}";
     public string SecondaryText => Confidence is null
         ? Notes ?? "No confidence"
         : $"Confidence {Confidence:0.##}{(string.IsNullOrWhiteSpace(Notes) ? string.Empty : $" | {Notes}")}";
 }
+
+public sealed record EventEntityLinkCategoryOptionViewModel(EventEntityLinkCategory Category, string DisplayName);
 
 public sealed record ClaimSummaryViewModel(
     Guid Id,
