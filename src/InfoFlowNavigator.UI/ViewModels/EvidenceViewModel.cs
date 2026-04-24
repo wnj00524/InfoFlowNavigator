@@ -85,7 +85,7 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
 
     protected override string CreateHintText => "Capture source material first, then attach it where it supports, contradicts, or contextualizes the analysis.";
 
-    protected override string EditHintText => "Update the selected evidence and manage its structured assessments.";
+    protected override string EditHintText => "Update the selected evidence source. Structured assessments are managed in the Assessments workspace.";
 
     public ObservableCollection<EvidenceSummaryViewModel> EvidenceItems { get; } = [];
 
@@ -132,6 +132,7 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
                 }
 
                 OnPropertyChanged(nameof(LinkHint));
+                OnPropertyChanged(nameof(AssessmentEditorHint));
             }
         }
     }
@@ -174,6 +175,8 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
 
                 PopulateLinkEditor(value);
                 OnPropertyChanged(nameof(PrimaryLinkActionLabel));
+                OnPropertyChanged(nameof(AssessmentEditorTitle));
+                OnPropertyChanged(nameof(AssessmentEditorHint));
             }
         }
     }
@@ -232,6 +235,12 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
     public string PrimaryLinkActionLabel => SelectedLink is null ? "Add Assessment" : "Update Assessment";
 
     public bool IsEditingAssessment => SelectedLink is not null;
+
+    public string AssessmentEditorTitle => SelectedLink is null ? "New Evidence Assessment" : "Edit Evidence Assessment";
+
+    public string AssessmentEditorHint => SelectedEvidence is null
+        ? "Choose evidence before evaluating it against an analytic target."
+        : $"Evaluate '{SelectedEvidence.Title}' against a claim, hypothesis, event, entity, or relationship.";
 
     public void Refresh(
         IReadOnlyList<EvidenceSummaryViewModel> evidenceItems,
@@ -340,6 +349,7 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
             }
 
             SelectedTargetKind = TargetKinds.FirstOrDefault(item => item.Kind == link.TargetKind) ?? TargetKinds.FirstOrDefault();
+            _targetKindChanged(link.TargetKind);
             SelectedTarget = Targets.FirstOrDefault(item => item.Id == link.TargetId) ?? Targets.FirstOrDefault();
             SelectedRelation = Relations.FirstOrDefault(item => item.Relation == link.RelationToTarget) ?? Relations.FirstOrDefault();
             SelectedStrength = Strengths.FirstOrDefault(item => item.Strength == link.Strength) ?? Strengths.FirstOrDefault();

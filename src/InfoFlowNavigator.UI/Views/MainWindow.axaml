@@ -124,10 +124,15 @@
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:WorkbenchSectionItemViewModel">
                 <Border Classes="shell-panel" Padding="12,10">
-                  <StackPanel Spacing="4">
-                    <TextBlock FontWeight="Bold" Text="{Binding Title}" />
-                    <TextBlock Classes="subtle" Text="{Binding Description}" TextWrapping="Wrap" MaxWidth="180" />
-                  </StackPanel>
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Border Classes="badge-pill" Padding="8,4" VerticalAlignment="Top">
+                      <TextBlock Classes="subtle" FontWeight="Bold" Text="{Binding ShortLabel}" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="4">
+                      <TextBlock FontWeight="Bold" Text="{Binding Title}" />
+                      <TextBlock Classes="subtle" Text="{Binding Description}" TextWrapping="Wrap" MaxWidth="180" />
+                    </StackPanel>
+                  </Grid>
                 </Border>
               </DataTemplate>
             </ListBox.ItemTemplate>
@@ -173,6 +178,7 @@
               <Button Content="New Claim..." Command="{Binding BeginQuickAddClaimCommand}" IsVisible="{Binding IsClaimsMode}" />
               <Button Content="New Hypothesis..." Command="{Binding BeginQuickAddHypothesisCommand}" IsVisible="{Binding IsHypothesesMode}" />
               <Button Content="New Evidence..." Command="{Binding BeginQuickAddEvidenceCommand}" IsVisible="{Binding IsEvidenceMode}" />
+              <Button Content="New Assessment..." Command="{Binding Evidence.BeginNewAssessmentCommand}" IsVisible="{Binding IsAssessmentsMode}" />
             </StackPanel>
           </Grid>
         </Border>
@@ -581,7 +587,7 @@
                         <StackPanel Spacing="6">
                           <TextBlock Classes="section-title" Text="Evidence Workspace" />
                           <TextBlock Classes="muted"
-                                     Text="Evidence is created when you save it. Assessments are edited inline here so the central workspace stays the primary analysis surface."
+                                     Text="Capture source material here, then evaluate it in the dedicated Assessments workspace."
                                      TextWrapping="Wrap" />
                         </StackPanel>
                         <Button Grid.Column="1" Content="New Evidence..." Command="{Binding BeginQuickAddEvidenceCommand}" VerticalAlignment="Center" />
@@ -632,117 +638,14 @@
                       <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                           <StackPanel Spacing="4">
-                            <TextBlock Classes="section-title" Text="Evidence Assessment Editor" />
-                            <TextBlock Classes="muted" Text="{Binding Evidence.LinkHint}" TextWrapping="Wrap" />
+                            <TextBlock Classes="section-title" Text="Evidence Assessments" />
+                            <TextBlock Classes="muted" Text="Use the Assessments workspace for the full editor and reasoning field." TextWrapping="Wrap" />
                           </StackPanel>
                           <Button Grid.Column="1"
                                   Classes="secondary"
-                                  Content="New Assessment"
+                                  Content="New Assessment..."
                                   Command="{Binding Evidence.BeginNewAssessmentCommand}"
                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                          <StackPanel Spacing="6">
-                            <TextBlock Classes="label" Text="Target Type" />
-                            <TextBox Text="{Binding Evidence.TargetKindPicker.SearchText}"
-                                     PlaceholderText="Search target classes"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                            <ListBox ItemsSource="{Binding Evidence.TargetKindPicker.Suggestions}"
-                                     SelectedItem="{Binding Evidence.TargetKindPicker.SelectedItem}"
-                                     MaxHeight="150"
-                                     IsVisible="{Binding Evidence.TargetKindPicker.HasSuggestions}"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}">
-                              <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:EvidenceLinkTargetKindOptionViewModel">
-                                  <TextBlock Text="{Binding DisplayName}" />
-                                </DataTemplate>
-                              </ListBox.ItemTemplate>
-                            </ListBox>
-                          </StackPanel>
-                          <StackPanel Grid.Column="1" Spacing="6">
-                            <TextBlock Classes="label" Text="Target" />
-                            <TextBox Text="{Binding Evidence.TargetPicker.SearchText}"
-                                     PlaceholderText="Search targets by name, type, or statement"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                            <ListBox ItemsSource="{Binding Evidence.TargetPicker.Suggestions}"
-                                     SelectedItem="{Binding Evidence.TargetPicker.SelectedItem}"
-                                     MaxHeight="180"
-                                     IsVisible="{Binding Evidence.TargetPicker.HasSuggestions}"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}">
-                              <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:TargetOptionViewModel">
-                                  <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                                </DataTemplate>
-                              </ListBox.ItemTemplate>
-                            </ListBox>
-                          </StackPanel>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                          <StackPanel Spacing="6">
-                            <TextBlock Classes="label" Text="Relation" />
-                            <TextBox Text="{Binding Evidence.RelationPicker.SearchText}"
-                                     PlaceholderText="Search evidence relations"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                            <ListBox ItemsSource="{Binding Evidence.RelationPicker.Suggestions}"
-                                     SelectedItem="{Binding Evidence.RelationPicker.SelectedItem}"
-                                     MaxHeight="150"
-                                     IsVisible="{Binding Evidence.RelationPicker.HasSuggestions}"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}">
-                              <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:EvidenceRelationOptionViewModel">
-                                  <TextBlock Text="{Binding DisplayName}" />
-                                </DataTemplate>
-                              </ListBox.ItemTemplate>
-                            </ListBox>
-                          </StackPanel>
-                          <StackPanel Grid.Column="1" Spacing="6">
-                            <TextBlock Classes="label" Text="Strength" />
-                            <TextBox Text="{Binding Evidence.StrengthPicker.SearchText}"
-                                     PlaceholderText="Search assessment strengths"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                            <ListBox ItemsSource="{Binding Evidence.StrengthPicker.Suggestions}"
-                                     SelectedItem="{Binding Evidence.StrengthPicker.SelectedItem}"
-                                     MaxHeight="150"
-                                     IsVisible="{Binding Evidence.StrengthPicker.HasSuggestions}"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}">
-                              <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:EvidenceStrengthOptionViewModel">
-                                  <TextBlock Text="{Binding DisplayName}" />
-                                </DataTemplate>
-                              </ListBox.ItemTemplate>
-                            </ListBox>
-                          </StackPanel>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="0.8*,1.2*" ColumnSpacing="10">
-                          <StackPanel Spacing="6">
-                            <TextBlock Classes="label" Text="Assessment Confidence" />
-                            <TextBox Text="{Binding Evidence.LinkConfidenceText}"
-                                     PlaceholderText="0.0 to 1.0"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                          </StackPanel>
-                          <StackPanel Grid.Column="1" Spacing="6">
-                            <TextBlock Classes="label" Text="Assessment Notes" />
-                            <TextBox Text="{Binding Evidence.LinkNotes}"
-                                     AcceptsReturn="True"
-                                     Height="90"
-                                     TextWrapping="Wrap"
-                                     VerticalContentAlignment="Top"
-                                     IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                          </StackPanel>
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                          <Button Content="{Binding Evidence.PrimaryLinkActionLabel}"
-                                  Command="{Binding Evidence.SaveLinkCommand}"
-                                  IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                          <Button Grid.Column="1"
-                                  Classes="danger"
-                                  Content="Delete Assessment"
-                                  Command="{Binding Evidence.DeleteLinkCommand}"
-                                  IsEnabled="{Binding Evidence.IsEditingAssessment}" />
                         </Grid>
 
                         <TextBlock Classes="label" Text="Current Assessments" />
@@ -765,6 +668,180 @@
                     </Border>
                   </StackPanel>
                 </Grid>
+              </StackPanel>
+
+              <StackPanel Spacing="14" IsVisible="{Binding IsAssessmentsMode}">
+                <Border Classes="shell-panel" Padding="18">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <StackPanel Spacing="6">
+                      <TextBlock Classes="section-title" Text="Assessment Workspace" />
+                      <TextBlock Classes="muted"
+                                 Text="Assessments connect evidence to claims, hypotheses, events, entities, and relationships so each analytic target keeps a clear support and contradiction trail."
+                                 TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Classes="secondary"
+                            Content="New Assessment..."
+                            Command="{Binding Evidence.BeginNewAssessmentCommand}"
+                            IsEnabled="{Binding Evidence.IsEditingExistingItem}"
+                            VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+
+                <Border Classes="shell-panel" Padding="18">
+                  <Grid ColumnDefinitions="0.82*,1.18*" ColumnSpacing="18">
+                    <StackPanel Spacing="14">
+                      <StackPanel Spacing="8">
+                        <TextBlock Classes="label" Text="Evidence Selector" />
+                        <TextBlock Classes="muted" Text="Choose the source item being evaluated." TextWrapping="Wrap" />
+                        <ListBox ItemsSource="{Binding Evidence.EvidenceItems}"
+                                 SelectedItem="{Binding Evidence.SelectedEvidence}"
+                                 MaxHeight="260">
+                          <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:EvidenceSummaryViewModel">
+                              <Border Classes="shell-panel" Margin="0,0,0,10" Padding="12">
+                                <StackPanel Spacing="4">
+                                  <TextBlock Classes="label" Text="{Binding Title}" TextWrapping="Wrap" />
+                                  <TextBlock Classes="subtle" Text="{Binding Citation}" TextWrapping="Wrap" />
+                                  <TextBlock Classes="muted" Text="{Binding Notes}" TextWrapping="Wrap" />
+                                </StackPanel>
+                              </Border>
+                            </DataTemplate>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="8">
+                        <TextBlock Classes="label" Text="Linked Assessments" />
+                        <ListBox ItemsSource="{Binding Evidence.LinkedTargets}"
+                                 SelectedItem="{Binding Evidence.SelectedLink}"
+                                 IsEnabled="{Binding Evidence.IsEditingExistingItem}"
+                                 MinHeight="180">
+                          <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:EvidenceLinkSummaryViewModel">
+                              <Border Classes="shell-panel" Margin="0,0,0,10" Padding="12">
+                                <StackPanel Spacing="4">
+                                  <TextBlock Classes="label" Text="{Binding TargetDisplayName}" TextWrapping="Wrap" />
+                                  <TextBlock Classes="subtle" Text="{Binding TargetKind}" />
+                                  <TextBlock Classes="muted" Text="{Binding SecondaryText}" TextWrapping="Wrap" />
+                                </StackPanel>
+                              </Border>
+                            </DataTemplate>
+                          </ListBox.ItemTemplate>
+                        </ListBox>
+                      </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Spacing="12">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="section-title" Text="{Binding Evidence.AssessmentEditorTitle}" />
+                        <TextBlock Classes="muted" Text="{Binding Evidence.AssessmentEditorHint}" TextWrapping="Wrap" />
+                      </StackPanel>
+
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="label" Text="Target Type" />
+                          <TextBox Text="{Binding Evidence.TargetKindPicker.SearchText}"
+                                   PlaceholderText="Search target classes"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                          <ListBox ItemsSource="{Binding Evidence.TargetKindPicker.Suggestions}"
+                                   SelectedItem="{Binding Evidence.TargetKindPicker.SelectedItem}"
+                                   MaxHeight="150"
+                                   IsVisible="{Binding Evidence.TargetKindPicker.HasSuggestions}"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}">
+                            <ListBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:EvidenceLinkTargetKindOptionViewModel">
+                                <TextBlock Text="{Binding DisplayName}" />
+                              </DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6">
+                          <TextBlock Classes="label" Text="Target" />
+                          <TextBox Text="{Binding Evidence.TargetPicker.SearchText}"
+                                   PlaceholderText="Search targets by name, type, or statement"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                          <ListBox ItemsSource="{Binding Evidence.TargetPicker.Suggestions}"
+                                   SelectedItem="{Binding Evidence.TargetPicker.SelectedItem}"
+                                   MaxHeight="180"
+                                   IsVisible="{Binding Evidence.TargetPicker.HasSuggestions}"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}">
+                            <ListBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:TargetOptionViewModel">
+                                <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
+                              </DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                        </StackPanel>
+                      </Grid>
+
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="label" Text="Relation" />
+                          <TextBox Text="{Binding Evidence.RelationPicker.SearchText}"
+                                   PlaceholderText="Search evidence relations"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                          <ListBox ItemsSource="{Binding Evidence.RelationPicker.Suggestions}"
+                                   SelectedItem="{Binding Evidence.RelationPicker.SelectedItem}"
+                                   MaxHeight="150"
+                                   IsVisible="{Binding Evidence.RelationPicker.HasSuggestions}"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}">
+                            <ListBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:EvidenceRelationOptionViewModel">
+                                <TextBlock Text="{Binding DisplayName}" />
+                              </DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6">
+                          <TextBlock Classes="label" Text="Strength" />
+                          <TextBox Text="{Binding Evidence.StrengthPicker.SearchText}"
+                                   PlaceholderText="Search assessment strengths"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                          <ListBox ItemsSource="{Binding Evidence.StrengthPicker.Suggestions}"
+                                   SelectedItem="{Binding Evidence.StrengthPicker.SelectedItem}"
+                                   MaxHeight="150"
+                                   IsVisible="{Binding Evidence.StrengthPicker.HasSuggestions}"
+                                   IsEnabled="{Binding Evidence.IsEditingExistingItem}">
+                            <ListBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:EvidenceStrengthOptionViewModel">
+                                <TextBlock Text="{Binding DisplayName}" />
+                              </DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
+                        </StackPanel>
+                      </Grid>
+
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="label" Text="Confidence" />
+                        <TextBox Text="{Binding Evidence.LinkConfidenceText}"
+                                 PlaceholderText="0.0 to 1.0"
+                                 IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                      </StackPanel>
+
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="label" Text="Assessment Notes" />
+                        <TextBox Text="{Binding Evidence.LinkNotes}"
+                                 AcceptsReturn="True"
+                                 MinHeight="220"
+                                 TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top"
+                                 IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                      </StackPanel>
+
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button Content="{Binding Evidence.PrimaryLinkActionLabel}"
+                                Command="{Binding Evidence.SaveLinkCommand}"
+                                IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                        <Button Grid.Column="1"
+                                Classes="danger"
+                                Content="Delete Assessment"
+                                Command="{Binding Evidence.DeleteLinkCommand}"
+                                IsEnabled="{Binding Evidence.IsEditingAssessment}" />
+                      </Grid>
+                    </StackPanel>
+                  </Grid>
+                </Border>
               </StackPanel>
 
               <StackPanel Spacing="12" IsVisible="{Binding IsFindingsMode}">
@@ -921,6 +998,33 @@
                   <TextBlock Classes="muted" Text="{Binding Hypotheses.Explanation}" TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
+            </StackPanel>
+
+            <StackPanel Spacing="12" IsVisible="{Binding IsAssessmentsMode}">
+              <TextBlock Classes="label" Text="Selected Evidence" />
+              <TextBlock Classes="muted" Text="{Binding Evidence.SelectedEvidence.DisplayName}" TextWrapping="Wrap" />
+              <TextBlock Classes="label" Text="Assessment Context" />
+              <TextBlock Classes="muted" Text="{Binding Evidence.AssessmentEditorHint}" TextWrapping="Wrap" />
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button Content="New Assessment..." Command="{Binding Evidence.BeginNewAssessmentCommand}" IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
+                <Button Grid.Column="1" Classes="danger" Content="Delete" Command="{Binding Evidence.DeleteLinkCommand}" IsEnabled="{Binding Evidence.IsEditingAssessment}" />
+              </Grid>
+              <TextBlock Classes="label" Text="Linked Assessments" />
+              <ListBox ItemsSource="{Binding Evidence.LinkedTargets}"
+                       SelectedItem="{Binding Evidence.SelectedLink}"
+                       IsEnabled="{Binding Evidence.IsEditingExistingItem}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:EvidenceLinkSummaryViewModel">
+                    <Border Classes="shell-panel" Margin="0,0,0,10" Padding="12">
+                      <StackPanel Spacing="4">
+                        <TextBlock Classes="label" Text="{Binding TargetDisplayName}" TextWrapping="Wrap" />
+                        <TextBlock Classes="subtle" Text="{Binding TargetKind}" />
+                        <TextBlock Classes="muted" Text="{Binding SecondaryText}" TextWrapping="Wrap" />
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
             </StackPanel>
 
             <StackPanel Spacing="12" IsVisible="{Binding IsEvidenceMode}">

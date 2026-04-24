@@ -15,6 +15,7 @@ public enum WorkbenchSection
     Claims,
     Hypotheses,
     Evidence,
+    Assessments,
     Findings
 }
 

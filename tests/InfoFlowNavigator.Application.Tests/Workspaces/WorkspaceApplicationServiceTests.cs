@@ -518,6 +518,20 @@ public sealed class WorkspaceApplicationServiceTests
 
         viewModel.ShowEvidenceCommand.Execute(null);
         Assert.True(viewModel.IsEvidenceMode);
+
+        viewModel.ShowAssessmentsCommand.Execute(null);
+        Assert.True(viewModel.IsAssessmentsMode);
+    }
+
+    [Fact]
+    public void ShellSections_IncludeAssessmentsWorkspace()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        var assessments = Assert.Single(viewModel.Sections, item => item.Section == WorkbenchSection.Assessments);
+        Assert.Equal("Assessments", assessments.Title);
+        Assert.Equal("Evaluate evidence against analytic targets", assessments.Description);
+        Assert.Equal("AS", assessments.ShortLabel);
     }
 
     [Fact]
@@ -609,6 +623,8 @@ public sealed class WorkspaceApplicationServiceTests
         viewModel.Evidence.SelectedLink = viewModel.Evidence.LinkedTargets[0];
 
         viewModel.Evidence.BeginNewAssessmentCommand.Execute(null);
+        Assert.Equal(WorkbenchSection.Assessments, viewModel.SelectedSection?.Section);
+        Assert.False(viewModel.IsSpotlightComposerOpen);
         viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Event);
         viewModel.Evidence.SelectedTarget = viewModel.Evidence.Targets.First(item => item.Id == viewModel.Workspace.Events[0].Id);
         viewModel.Evidence.SaveLinkCommand.Execute(null);
@@ -616,6 +632,89 @@ public sealed class WorkspaceApplicationServiceTests
         Assert.Equal(2, viewModel.Workspace.EvidenceLinks.Count);
         Assert.Contains(viewModel.Workspace.EvidenceLinks, link => link.TargetKind == EvidenceLinkTargetKind.Entity);
         Assert.Contains(viewModel.Workspace.EvidenceLinks, link => link.TargetKind == EvidenceLinkTargetKind.Event);
+    }
+
+    [Fact]
+    public void AssessmentsScreen_SaveNewAssessment_AddsEvidenceLink()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Evidence.EvidenceTitle = "Interview Summary";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        viewModel.ShowAssessmentsCommand.Execute(null);
+        viewModel.Evidence.SelectedEvidence = viewModel.Evidence.EvidenceItems.First();
+        viewModel.Evidence.BeginNewAssessmentCommand.Execute(null);
+        viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Entity);
+        viewModel.Evidence.SelectedTarget = viewModel.Evidence.Targets.First(item => item.Id == viewModel.Workspace.Entities[0].Id);
+        viewModel.Evidence.SelectedRelation = viewModel.Evidence.Relations.First(item => item.Relation == EvidenceRelationToTarget.Supports);
+        viewModel.Evidence.SelectedStrength = viewModel.Evidence.Strengths.First(item => item.Strength == EvidenceStrength.Strong);
+        viewModel.Evidence.LinkConfidenceText = "0.75";
+        viewModel.Evidence.LinkNotes = "Direct corroboration";
+
+        viewModel.Evidence.SaveLinkCommand.Execute(null);
+
+        Assert.Equal(WorkbenchSection.Assessments, viewModel.SelectedSection?.Section);
+        var link = Assert.Single(viewModel.Workspace.EvidenceLinks);
+        Assert.Equal(viewModel.Workspace.Evidence[0].Id, link.EvidenceId);
+        Assert.Equal(EvidenceLinkTargetKind.Entity, link.TargetKind);
+        Assert.Equal(EvidenceRelationToTarget.Supports, link.RelationToTarget);
+        Assert.Equal(EvidenceStrength.Strong, link.Strength);
+        Assert.Equal(0.75, link.Confidence);
+    }
+
+    [Fact]
+    public void AssessmentsScreen_UpdateSelectedAssessment_ChangesTargetRelationAndStrength()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+        viewModel.Entities.NewEntityName = "Alice";
+        viewModel.Entities.NewEntityType = "Person";
+        viewModel.Entities.AddEntityCommand.Execute(null);
+        viewModel.Events.EventTitle = "Meeting";
+        viewModel.Events.EventOccurredAtText = "21/04/26 14:30";
+        viewModel.Events.SaveEventCommand.Execute(null);
+        viewModel.Evidence.EvidenceTitle = "Interview Summary";
+        viewModel.Evidence.SaveEvidenceCommand.Execute(null);
+
+        viewModel.ShowAssessmentsCommand.Execute(null);
+        viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Entity);
+        viewModel.Evidence.SelectedTarget = viewModel.Evidence.Targets.First(item => item.Id == viewModel.Workspace.Entities[0].Id);
+        viewModel.Evidence.SelectedRelation = viewModel.Evidence.Relations.First(item => item.Relation == EvidenceRelationToTarget.Supports);
+        viewModel.Evidence.SelectedStrength = viewModel.Evidence.Strengths.First(item => item.Strength == EvidenceStrength.Weak);
+        viewModel.Evidence.SaveLinkCommand.Execute(null);
+        viewModel.Evidence.SelectedLink = viewModel.Evidence.LinkedTargets[0];
+
+        viewModel.Evidence.SelectedTargetKind = viewModel.Evidence.TargetKinds.First(item => item.Kind == EvidenceLinkTargetKind.Event);
+        viewModel.Evidence.SelectedTarget = viewModel.Evidence.Targets.First(item => item.Id == viewModel.Workspace.Events[0].Id);
+        viewModel.Evidence.SelectedRelation = viewModel.Evidence.Relations.First(item => item.Relation == EvidenceRelationToTarget.Contradicts);
+        viewModel.Evidence.SelectedStrength = viewModel.Evidence.Strengths.First(item => item.Strength == EvidenceStrength.Strong);
+        viewModel.Evidence.SaveLinkCommand.Execute(null);
+
+        var link = Assert.Single(viewModel.Workspace.EvidenceLinks);
+        Assert.Equal(EvidenceLinkTargetKind.Event, link.TargetKind);
+        Assert.Equal(viewModel.Workspace.Events[0].Id, link.TargetId);
+        Assert.Equal(EvidenceRelationToTarget.Contradicts, link.RelationToTarget);
+        Assert.Equal(EvidenceStrength.Strong, link.Strength);
+    }
+
+    [Fact]
+    public void AssessmentsWorkflow_TargetKindsIncludeAllAnalyticTargets()
+    {
+        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
+
+        var targetKinds = viewModel.Evidence.TargetKinds.Select(item => item.Kind).ToArray();
+
+        Assert.Equal(
+            [
+                EvidenceLinkTargetKind.Entity,
+                EvidenceLinkTargetKind.Relationship,
+                EvidenceLinkTargetKind.Event,
+                EvidenceLinkTargetKind.Claim,
+                EvidenceLinkTargetKind.Hypothesis
+            ],
+            targetKinds);
     }
 
     [Fact]

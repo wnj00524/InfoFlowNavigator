@@ -63,7 +63,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new(WorkbenchSection.Events, "Events", "Observed activity and chronology", "EV"),
             new(WorkbenchSection.Claims, "Claims", "First-class assertions and support", "CL"),
             new(WorkbenchSection.Hypotheses, "Hypotheses", "Competing explanations and inference", "HY"),
-            new(WorkbenchSection.Evidence, "Evidence", "Sources and structured assessments", "ED"),
+            new(WorkbenchSection.Evidence, "Evidence", "Sources and evidence capture", "ED"),
+            new(WorkbenchSection.Assessments, "Assessments", "Evaluate evidence against analytic targets", "AS"),
             new(WorkbenchSection.Findings, "Findings", "Explainable analysis guidance", "FI")
         };
 
@@ -83,6 +84,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         ShowClaimsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Claims));
         ShowHypothesesCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Hypotheses));
         ShowEvidenceCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Evidence));
+        ShowAssessmentsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Assessments));
         ShowFindingsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Findings));
 
         ToggleRightDrawerCommand = new RelayCommand(() => IsRightDrawerOpen = !IsRightDrawerOpen);
@@ -226,6 +228,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsClaimsMode));
                 OnPropertyChanged(nameof(IsHypothesesMode));
                 OnPropertyChanged(nameof(IsEvidenceMode));
+                OnPropertyChanged(nameof(IsAssessmentsMode));
                 OnPropertyChanged(nameof(IsFindingsMode));
                 OnPropertyChanged(nameof(IsInspectorVisible));
                 OnPropertyChanged(nameof(CurrentDrawerTitle));
@@ -243,6 +246,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public bool IsClaimsMode => SelectedSection?.Section == WorkbenchSection.Claims;
     public bool IsHypothesesMode => SelectedSection?.Section == WorkbenchSection.Hypotheses;
     public bool IsEvidenceMode => SelectedSection?.Section == WorkbenchSection.Evidence;
+    public bool IsAssessmentsMode => SelectedSection?.Section == WorkbenchSection.Assessments;
     public bool IsFindingsMode => SelectedSection?.Section == WorkbenchSection.Findings;
 
     public bool IsRightDrawerOpen
@@ -335,6 +339,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             WorkbenchSection.Claims => Claims.EditorTitle,
             WorkbenchSection.Hypotheses => Hypotheses.EditorTitle,
             WorkbenchSection.Evidence => Evidence.EditorTitle,
+            WorkbenchSection.Assessments => "Evidence Assessments",
             WorkbenchSection.Findings => "Analysis Drawer",
             _ => "Inspector"
         };
@@ -348,6 +353,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             WorkbenchSection.Claims => Claims.EditorHint,
             WorkbenchSection.Hypotheses => Hypotheses.EditorHint,
             WorkbenchSection.Evidence => Evidence.EditorHint,
+            WorkbenchSection.Assessments => "Use the central editor to connect evidence to analytic targets.",
             WorkbenchSection.Findings => Findings.TopPrioritySummary,
             _ => "Context for the active section."
         };
@@ -407,6 +413,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public RelayCommand ShowClaimsCommand { get; }
     public RelayCommand ShowHypothesesCommand { get; }
     public RelayCommand ShowEvidenceCommand { get; }
+    public RelayCommand ShowAssessmentsCommand { get; }
     public RelayCommand ShowFindingsCommand { get; }
     public RelayCommand ToggleRightDrawerCommand { get; }
     public RelayCommand ToggleInsightPulseCommand { get; }
@@ -886,16 +893,18 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
     private void BeginNewEvidenceAssessment()
     {
+        SelectSection(WorkbenchSection.Assessments);
+        Evidence.BeginNewAssessment();
+        IsQuickCaptureExpanded = false;
+        CloseSpotlightComposer();
+
         if (Evidence.SelectedEvidence is null)
         {
             SetStatus("Select an evidence item first.");
             return;
         }
 
-        SelectSection(WorkbenchSection.Evidence);
-        Evidence.BeginNewAssessment();
-        OpenSpotlight(SpotlightComposerMode.Evidence);
-        SetTransientStatus("Evidence assessment editor is ready.");
+        SetTransientStatus("Assessment editor is ready.");
     }
 
     private void SaveEvidence()
@@ -1235,7 +1244,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             "Evidence" => WorkbenchSection.Evidence,
             _ => finding.Category switch
             {
-                FindingCategory.SupportGap => WorkbenchSection.Findings,
+                FindingCategory.SupportGap => WorkbenchSection.Assessments,
                 FindingCategory.Contradiction => WorkbenchSection.Claims,
                 FindingCategory.Timeline => WorkbenchSection.Events,
                 FindingCategory.Hypothesis => WorkbenchSection.Hypotheses,
@@ -1438,8 +1447,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         new(EvidenceLinkTargetKind.Entity, "Entity"),
         new(EvidenceLinkTargetKind.Relationship, "Relationship"),
         new(EvidenceLinkTargetKind.Event, "Event"),
-        new(EvidenceLinkTargetKind.Hypothesis, "Hypothesis"),
-        new(EvidenceLinkTargetKind.Claim, "Claim")
+        new(EvidenceLinkTargetKind.Claim, "Claim"),
+        new(EvidenceLinkTargetKind.Hypothesis, "Hypothesis")
     ];
 
     private string ResolveEntityName(Guid entityId) =>

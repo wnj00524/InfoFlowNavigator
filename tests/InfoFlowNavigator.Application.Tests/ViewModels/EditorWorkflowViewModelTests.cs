@@ -298,9 +298,11 @@ public sealed class EditorWorkflowViewModelTests
         Assert.Contains("Text=\"Claim Details\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Link Entities To Event\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"{Binding InsightPulseButtonLabel}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Evidence Assessment Editor\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Assessment Workspace\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Evidence Selector\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("MinHeight=\"220\"", xaml, StringComparison.Ordinal);
         Assert.Contains("PlaceholderText=\"Search targets by name, type, or statement\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"New Assessment\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New Assessment...\"", xaml, StringComparison.Ordinal);
         Assert.Contains("<view:SpotlightComposer", xaml, StringComparison.Ordinal);
         Assert.Contains("<view:InsightPulseBar", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("<ComboBox", xaml, StringComparison.Ordinal);
