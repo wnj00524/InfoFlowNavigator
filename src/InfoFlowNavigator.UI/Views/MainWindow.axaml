@@ -62,7 +62,7 @@
     </Style>
   </Window.Styles>
 
-  <Grid Margin="18" RowDefinitions="Auto,Auto,Auto,*">
+  <Grid Margin="18" RowDefinitions="Auto,Auto,*">
     <Border Classes="chrome-bar" PointerPressed="OnHeaderPointerPressed">
       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="18">
         <StackPanel Spacing="2">
@@ -80,79 +80,54 @@
     </Border>
 
     <Border Grid.Row="1" Margin="0,14,0,0" Classes="hero-card">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
-        <StackPanel Spacing="10">
-          <TextBlock Classes="page-title" Text="{Binding WorkspaceName}" />
-          <TextBlock Classes="muted" Text="{Binding WorkspacePathDisplay}" TextWrapping="Wrap" />
-          <WrapPanel ItemWidth="130" Orientation="Horizontal">
-            <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceEntityCount, StringFormat='Entities {0}'}" /></Border>
-            <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceRelationshipCount, StringFormat='Relationships {0}'}" /></Border>
-            <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceEventCount, StringFormat='Events {0}'}" /></Border>
-            <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceClaimCount, StringFormat='Claims {0}'}" /></Border>
-            <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceHypothesisCount, StringFormat='Hypotheses {0}'}" /></Border>
-            <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceEvidenceCount, StringFormat='Evidence {0}'}" /></Border>
-          </WrapPanel>
-        </StackPanel>
-
-        <StackPanel Grid.Column="1" Spacing="10" HorizontalAlignment="Right">
-          <StackPanel Orientation="Horizontal" Spacing="8">
+      <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="page-title" Text="{Binding WorkspaceName}" />
+            <TextBlock Classes="muted" Text="{Binding WorkspacePathDisplay}" TextWrapping="Wrap" />
+          </StackPanel>
+          <WrapPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right">
             <Button Classes="secondary" Content="New Workspace" Command="{Binding NewWorkspaceCommand}" />
             <Button Classes="secondary" Content="Open" Command="{Binding OpenWorkspaceCommand}" />
             <Button Content="Save" Command="{Binding SaveWorkspaceCommand}" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
             <Button Classes="ghost" Content="Briefing" Command="{Binding ExportBriefingCommand}" />
             <Button Classes="ghost" Content="Network Export" Command="{Binding ExportNetworkCommand}" />
             <Button Classes="secondary" Content="{Binding RightDrawerButtonLabel}" Command="{Binding ToggleRightDrawerCommand}" />
-          </StackPanel>
-        </StackPanel>
-      </Grid>
-    </Border>
-
-    <Border Grid.Row="2" Margin="0,14,0,0" Classes="shell-panel" Padding="14">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-        <StackPanel Spacing="8">
-          <TextBlock Classes="label" Text="Navigate" />
-          <ListBox Classes="top-rail nav-rail"
-                   ItemsSource="{Binding Sections}"
-                   SelectedItem="{Binding SelectedSection}">
-            <ListBox.ItemsPanel>
-              <ItemsPanelTemplate>
-                <WrapPanel />
-              </ItemsPanelTemplate>
-            </ListBox.ItemsPanel>
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:WorkbenchSectionItemViewModel">
-                <Border Classes="shell-panel" Padding="12,10">
-                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <Border Classes="badge-pill" Padding="8,4" VerticalAlignment="Top">
-                      <TextBlock Classes="subtle" FontWeight="Bold" Text="{Binding ShortLabel}" />
-                    </Border>
-                    <StackPanel Grid.Column="1" Spacing="4">
-                      <TextBlock FontWeight="Bold" Text="{Binding Title}" />
-                      <TextBlock Classes="subtle" Text="{Binding Description}" TextWrapping="Wrap" MaxWidth="180" />
-                    </StackPanel>
-                  </Grid>
-                </Border>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </StackPanel>
-
-        <StackPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right">
-          <TextBlock Classes="label" Text="Create" />
-          <WrapPanel>
-            <Button Margin="0,0,8,8" Content="Add Entity..." Command="{Binding ShowEntitiesCommand}" />
-            <Button Margin="0,0,8,8" Content="New Event..." Command="{Binding BeginQuickAddEventCommand}" />
-            <Button Margin="0,0,8,8" Content="New Claim..." Command="{Binding BeginQuickAddClaimCommand}" />
-            <Button Margin="0,0,8,8" Content="New Hypothesis..." Command="{Binding BeginQuickAddHypothesisCommand}" />
-            <Button Margin="0,0,8,8" Content="New Evidence..." Command="{Binding BeginQuickAddEvidenceCommand}" />
           </WrapPanel>
-        </StackPanel>
-      </Grid>
+        </Grid>
+
+        <WrapPanel ItemWidth="130" Orientation="Horizontal">
+          <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceEntityCount, StringFormat='Entities {0}'}" /></Border>
+          <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceRelationshipCount, StringFormat='Relationships {0}'}" /></Border>
+          <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceEventCount, StringFormat='Events {0}'}" /></Border>
+          <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceClaimCount, StringFormat='Claims {0}'}" /></Border>
+          <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceHypothesisCount, StringFormat='Hypotheses {0}'}" /></Border>
+          <Border Classes="badge-pill" Margin="0,0,8,8"><TextBlock Text="{Binding WorkspaceEvidenceCount, StringFormat='Evidence {0}'}" /></Border>
+        </WrapPanel>
+
+        <ListBox Classes="top-rail nav-rail"
+                 ItemsSource="{Binding Sections}"
+                 SelectedItem="{Binding SelectedSection}">
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:WorkbenchSectionItemViewModel">
+              <Border Classes="badge-pill" Padding="10,6">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Classes="subtle" FontWeight="Bold" Text="{Binding ShortLabel}" />
+                  <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </StackPanel>
     </Border>
 
-    <Grid Grid.Row="3" Margin="0,14,0,0" ColumnDefinitions="*,360" ColumnSpacing="14">
+    <Grid Grid.Row="2" Margin="0,14,0,0" ColumnDefinitions="*,360" ColumnSpacing="14">
       <Grid RowDefinitions="Auto,*" RowSpacing="14">
         <Border Classes="canvas-card">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -274,7 +249,6 @@
                                  Text="Events are created when you save them. Linked entities are added inline below using a structured category and optional analyst detail."
                                  TextWrapping="Wrap" />
                     </StackPanel>
-                    <Button Grid.Column="1" Content="New Event..." Command="{Binding BeginQuickAddEventCommand}" VerticalAlignment="Center" />
                   </Grid>
                 </Border>
 
@@ -447,7 +421,6 @@
                           <TextBlock Classes="section-title" Text="Claim Editor" />
                           <TextBlock Classes="muted" Text="Claims are created when you save them. Target and hypothesis routing stay inline so the center workspace remains usable." TextWrapping="Wrap" />
                         </StackPanel>
-                        <Button Grid.Column="1" Content="New Claim..." Command="{Binding BeginQuickAddClaimCommand}" VerticalAlignment="Center" />
                       </Grid>
                     </Border>
 
@@ -559,24 +532,62 @@
               <StackPanel Spacing="14" IsVisible="{Binding IsHypothesesMode}">
                 <Border Classes="shell-panel" Padding="14">
                   <StackPanel Spacing="8">
-                    <TextBlock Classes="section-title" Text="Hypothesis Editor" />
-                    <TextBlock Classes="muted" Text="Use New Hypothesis... to open the editor. The hypothesis is created when you save it." TextWrapping="Wrap" />
-                    <Button Content="New Hypothesis..." Command="{Binding BeginQuickAddHypothesisCommand}" HorizontalAlignment="Left" />
+                    <TextBlock Classes="section-title" Text="Hypothesis Workspace" />
+                    <TextBlock Classes="muted" Text="Select or double-click an item to edit centrally. Evidence context is shown in the drawer." TextWrapping="Wrap" />
                   </StackPanel>
                 </Border>
-                <ListBox ItemsSource="{Binding Hypotheses.Hypotheses}" SelectedItem="{Binding Hypotheses.SelectedHypothesis}">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:HypothesisSummaryViewModel">
-                      <Border Classes="shell-panel" Margin="0,0,0,10" Padding="16">
-                        <StackPanel Spacing="4">
-                          <TextBlock Classes="label" Text="{Binding Title}" />
-                          <TextBlock Classes="subtle" Text="{Binding Status}" />
-                          <TextBlock Classes="muted" Text="{Binding Statement}" TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="0.95*,1.05*" ColumnSpacing="14">
+                  <StackPanel Spacing="10">
+                    <TextBlock Classes="label" Text="Hypothesis Explorer" />
+                    <ListBox ItemsSource="{Binding Hypotheses.Hypotheses}" SelectedItem="{Binding Hypotheses.SelectedHypothesis}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HypothesisSummaryViewModel">
+                          <Border Classes="shell-panel" Margin="0,0,0,10" Padding="14">
+                            <StackPanel Spacing="6">
+                              <TextBlock Classes="label" Text="{Binding Title}" />
+                              <TextBlock Classes="subtle" Text="{Binding Status}" />
+                              <TextBlock Classes="muted" Text="{Binding Statement}" TextWrapping="Wrap" />
+                              <Border Classes="shell-panel" Padding="10">
+                                <TextBlock Classes="subtle" Text="Evidence tree placeholder: supporting/contradicting links render as expandable children." TextWrapping="Wrap" />
+                              </Border>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </StackPanel>
+
+                  <Border Grid.Column="1" Classes="shell-panel" Padding="16">
+                    <StackPanel Spacing="10">
+                      <TextBlock Classes="section-title" Text="Hypothesis Details" />
+                      <TextBlock Classes="label" Text="Title" />
+                      <TextBox Text="{Binding Hypotheses.Title}" />
+                      <TextBlock Classes="label" Text="Statement" />
+                      <TextBox Text="{Binding Hypotheses.Statement}" AcceptsReturn="True" Height="140" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="label" Text="Status" />
+                          <ListBox ItemsSource="{Binding Hypotheses.StatusOptions}" SelectedItem="{Binding Hypotheses.SelectedStatus}" MaxHeight="120">
+                            <ListBox.ItemTemplate>
+                              <DataTemplate x:DataType="vm:HypothesisStatusOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate>
+                            </ListBox.ItemTemplate>
+                          </ListBox>
                         </StackPanel>
-                      </Border>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
+                        <StackPanel Grid.Column="1" Spacing="6">
+                          <TextBlock Classes="label" Text="Confidence" />
+                          <TextBox Text="{Binding Hypotheses.ConfidenceText}" PlaceholderText="0.0 to 1.0" />
+                        </StackPanel>
+                      </Grid>
+                      <TextBlock Classes="label" Text="Notes" />
+                      <TextBox Text="{Binding Hypotheses.Notes}" AcceptsReturn="True" Height="100" TextWrapping="Wrap" VerticalContentAlignment="Top" />
+                      <TextBlock Classes="muted" Text="{Binding Hypotheses.HypothesisValidationMessage}" TextWrapping="Wrap" IsVisible="{Binding Hypotheses.ShowHypothesisValidationMessage}" />
+                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Content="{Binding Hypotheses.PrimaryActionLabel}" Command="{Binding Hypotheses.SaveHypothesisCommand}" IsEnabled="{Binding Hypotheses.CanSaveHypothesis}" />
+                        <Button Grid.Column="1" Classes="danger" Content="Delete Hypothesis" Command="{Binding Hypotheses.DeleteHypothesisCommand}" IsEnabled="{Binding Hypotheses.IsEditingExistingItem}" />
+                      </Grid>
+                    </StackPanel>
+                  </Border>
+                </Grid>
               </StackPanel>
 
               <StackPanel Spacing="14" IsVisible="{Binding IsEvidenceMode}">
@@ -590,7 +601,6 @@
                                      Text="Capture source material here, then evaluate it in the dedicated Assessments workspace."
                                      TextWrapping="Wrap" />
                         </StackPanel>
-                        <Button Grid.Column="1" Content="New Evidence..." Command="{Binding BeginQuickAddEvidenceCommand}" VerticalAlignment="Center" />
                       </Grid>
                     </Border>
 
@@ -679,12 +689,6 @@
                                  Text="Assessments connect evidence to claims, hypotheses, events, entities, and relationships so each analytic target keeps a clear support and contradiction trail."
                                  TextWrapping="Wrap" />
                     </StackPanel>
-                    <Button Grid.Column="1"
-                            Classes="secondary"
-                            Content="New Assessment..."
-                            Command="{Binding Evidence.BeginNewAssessmentCommand}"
-                            IsEnabled="{Binding Evidence.IsEditingExistingItem}"
-                            VerticalAlignment="Center" />
                   </Grid>
                 </Border>
 
@@ -874,55 +878,13 @@
             </StackPanel>
 
             <StackPanel Spacing="12" IsVisible="{Binding IsEntitiesMode}">
-              <TextBlock Classes="label" Text="Selected Entity" />
+              <TextBlock Classes="label" Text="Entity Context" />
               <TextBlock Classes="muted" Text="{Binding Entities.InspectorTitle}" TextWrapping="Wrap" />
-              <TextBlock Classes="label" Text="Name" />
-              <TextBox Text="{Binding Entities.EditorName}" />
-              <TextBlock Classes="label" Text="Type" />
-              <controls:AutoCompleteTextBox Text="{Binding Entities.EditorType}"
-                                            Suggestions="{Binding Entities.EntityTypeSuggestions}"
-                                            PlaceholderText="Entity type" />
-              <TextBlock Classes="label" Text="Confidence" />
-              <TextBox Text="{Binding Entities.EditorConfidenceText}" PlaceholderText="0.0 to 1.0" />
-              <TextBlock Classes="label" Text="Notes" />
-              <TextBox Text="{Binding Entities.EditorNotes}" AcceptsReturn="True" Height="110" TextWrapping="Wrap" VerticalContentAlignment="Top" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Button Content="Save Entity" Command="{Binding Entities.SaveEntityCommand}" IsEnabled="{Binding Entities.HasSelection}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete" Command="{Binding Entities.DeleteEntityCommand}" IsEnabled="{Binding Entities.HasSelection}" />
-              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="12" IsVisible="{Binding IsRelationshipsMode}">
-              <TextBlock Classes="label" Text="Selected Relationship" />
+              <TextBlock Classes="label" Text="Relationship Context" />
               <TextBlock Classes="muted" Text="{Binding Relationships.InspectorHint}" TextWrapping="Wrap" />
-              <TextBlock Classes="label" Text="Source" />
-              <TextBox Text="{Binding Relationships.SourcePicker.SearchText}" PlaceholderText="Search source entity" />
-              <ListBox ItemsSource="{Binding Relationships.SourcePicker.Suggestions}"
-                       SelectedItem="{Binding Relationships.SourcePicker.SelectedItem}"
-                       MaxHeight="150"
-                       IsVisible="{Binding Relationships.SourcePicker.HasSuggestions}">
-                <ListBox.ItemTemplate><DataTemplate x:DataType="vm:EntityOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ListBox.ItemTemplate>
-              </ListBox>
-              <TextBlock Classes="label" Text="Target" />
-              <TextBox Text="{Binding Relationships.TargetPicker.SearchText}" PlaceholderText="Search target entity" />
-              <ListBox ItemsSource="{Binding Relationships.TargetPicker.Suggestions}"
-                       SelectedItem="{Binding Relationships.TargetPicker.SelectedItem}"
-                       MaxHeight="150"
-                       IsVisible="{Binding Relationships.TargetPicker.HasSuggestions}">
-                <ListBox.ItemTemplate><DataTemplate x:DataType="vm:EntityOptionViewModel"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ListBox.ItemTemplate>
-              </ListBox>
-              <TextBlock Classes="label" Text="Relationship Type" />
-              <controls:AutoCompleteTextBox Text="{Binding Relationships.RelationshipType}"
-                                            Suggestions="{Binding Relationships.RelationshipTypeSuggestions}"
-                                            PlaceholderText="Relationship type" />
-              <TextBlock Classes="label" Text="Confidence" />
-              <TextBox Text="{Binding Relationships.RelationshipConfidenceText}" PlaceholderText="0.0 to 1.0" />
-              <TextBlock Classes="label" Text="Notes" />
-              <TextBox Text="{Binding Relationships.RelationshipNotes}" AcceptsReturn="True" Height="100" TextWrapping="Wrap" VerticalContentAlignment="Top" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Button Content="{Binding Relationships.PrimaryActionLabel}" Command="{Binding Relationships.SaveRelationshipCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete" Command="{Binding Relationships.DeleteRelationshipCommand}" IsEnabled="{Binding Relationships.HasSelection}" />
-              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="12" IsVisible="{Binding IsEventsMode}">
@@ -969,29 +931,11 @@
             <StackPanel Spacing="12" IsVisible="{Binding IsClaimsMode}">
               <TextBlock Classes="label" Text="Selected Claim" />
               <TextBlock Classes="muted" Text="{Binding Claims.EditorHint}" TextWrapping="Wrap" />
-              <TextBlock Classes="label" Text="Statement" />
-              <TextBox Text="{Binding Claims.Statement}" AcceptsReturn="True" Height="110" TextWrapping="Wrap" VerticalContentAlignment="Top" />
-              <TextBlock Classes="label" Text="Claim Type" />
-              <TextBlock Classes="muted" Text="{Binding Claims.ClaimTypePicker.SearchText}" />
-              <TextBlock Classes="label" Text="Status" />
-              <TextBlock Classes="muted" Text="{Binding Claims.ClaimStatusPicker.SearchText}" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Button Content="{Binding Claims.PrimaryActionLabel}" Command="{Binding Claims.SaveClaimCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete" Command="{Binding Claims.DeleteClaimCommand}" IsEnabled="{Binding Claims.IsEditingExistingItem}" />
-              </Grid>
             </StackPanel>
 
             <StackPanel Spacing="12" IsVisible="{Binding IsHypothesesMode}">
               <TextBlock Classes="label" Text="Selected Hypothesis" />
               <TextBlock Classes="muted" Text="{Binding Hypotheses.EditorHint}" TextWrapping="Wrap" />
-              <TextBlock Classes="label" Text="Title" />
-              <TextBox Text="{Binding Hypotheses.Title}" />
-              <TextBlock Classes="label" Text="Statement" />
-              <TextBox Text="{Binding Hypotheses.Statement}" AcceptsReturn="True" Height="110" TextWrapping="Wrap" VerticalContentAlignment="Top" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Button Content="{Binding Hypotheses.PrimaryActionLabel}" Command="{Binding Hypotheses.SaveHypothesisCommand}" IsEnabled="{Binding Hypotheses.CanSaveHypothesis}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete" Command="{Binding Hypotheses.DeleteHypothesisCommand}" IsEnabled="{Binding Hypotheses.IsEditingExistingItem}" />
-              </Grid>
               <Border Classes="shell-panel" Padding="14">
                 <StackPanel Spacing="6">
                   <TextBlock Classes="label" Text="{Binding Hypotheses.Posture}" />
@@ -1005,10 +949,6 @@
               <TextBlock Classes="muted" Text="{Binding Evidence.SelectedEvidence.DisplayName}" TextWrapping="Wrap" />
               <TextBlock Classes="label" Text="Assessment Context" />
               <TextBlock Classes="muted" Text="{Binding Evidence.AssessmentEditorHint}" TextWrapping="Wrap" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Button Content="New Assessment..." Command="{Binding Evidence.BeginNewAssessmentCommand}" IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete" Command="{Binding Evidence.DeleteLinkCommand}" IsEnabled="{Binding Evidence.IsEditingAssessment}" />
-              </Grid>
               <TextBlock Classes="label" Text="Linked Assessments" />
               <ListBox ItemsSource="{Binding Evidence.LinkedTargets}"
                        SelectedItem="{Binding Evidence.SelectedLink}"
@@ -1030,17 +970,6 @@
             <StackPanel Spacing="12" IsVisible="{Binding IsEvidenceMode}">
               <TextBlock Classes="label" Text="Selected Evidence" />
               <TextBlock Classes="muted" Text="{Binding Evidence.EditorHint}" TextWrapping="Wrap" />
-              <TextBlock Classes="label" Text="Title" />
-              <TextBox Text="{Binding Evidence.EvidenceTitle}" />
-              <TextBlock Classes="label" Text="Citation" />
-              <TextBox Text="{Binding Evidence.EvidenceCitation}" />
-              <TextBlock Classes="label" Text="Notes" />
-              <TextBox Text="{Binding Evidence.EvidenceNotes}" AcceptsReturn="True" Height="110" TextWrapping="Wrap" VerticalContentAlignment="Top" />
-              <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Button Content="{Binding Evidence.PrimaryActionLabel}" Command="{Binding Evidence.SaveEvidenceCommand}" />
-                <Button Grid.Column="1" Classes="danger" Content="Delete" Command="{Binding Evidence.DeleteEvidenceCommand}" IsEnabled="{Binding Evidence.IsEditingExistingItem}" />
-              </Grid>
-
               <Border Classes="shell-panel" Padding="14" Margin="0,8,0,0">
                 <StackPanel Spacing="10">
                   <TextBlock Classes="label" Text="Evidence Assessments" />
@@ -1074,6 +1003,6 @@
       </Border>
     </Grid>
 
-    <view:SpotlightComposer Grid.RowSpan="4" IsVisible="{Binding IsSpotlightComposerOpen}" />
+    <view:SpotlightComposer Grid.RowSpan="3" IsVisible="{Binding IsSpotlightComposerOpen}" />
   </Grid>
 </Window>
