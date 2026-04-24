@@ -86,13 +86,13 @@
             <TextBlock Classes="page-title" Text="{Binding WorkspaceName}" />
             <TextBlock Classes="muted" Text="{Binding WorkspacePathDisplay}" TextWrapping="Wrap" />
           </StackPanel>
-          <WrapPanel Grid.Column="1" Spacing="8" HorizontalAlignment="Right">
-            <Button Classes="secondary" Content="New Workspace" Command="{Binding NewWorkspaceCommand}" />
-            <Button Classes="secondary" Content="Open" Command="{Binding OpenWorkspaceCommand}" />
-            <Button Content="Save" Command="{Binding SaveWorkspaceCommand}" />
-            <Button Classes="ghost" Content="Briefing" Command="{Binding ExportBriefingCommand}" />
-            <Button Classes="ghost" Content="Network Export" Command="{Binding ExportNetworkCommand}" />
-            <Button Classes="secondary" Content="{Binding RightDrawerButtonLabel}" Command="{Binding ToggleRightDrawerCommand}" />
+          <WrapPanel Grid.Column="1" Margin="0,0,-8,-8" HorizontalAlignment="Right">
+            <Button Margin="0,0,8,8" Classes="secondary" Content="New Workspace" Command="{Binding NewWorkspaceCommand}" />
+            <Button Margin="0,0,8,8" Classes="secondary" Content="Open" Command="{Binding OpenWorkspaceCommand}" />
+            <Button Margin="0,0,8,8" Content="Save" Command="{Binding SaveWorkspaceCommand}" />
+            <Button Margin="0,0,8,8" Classes="ghost" Content="Briefing" Command="{Binding ExportBriefingCommand}" />
+            <Button Margin="0,0,8,8" Classes="ghost" Content="Network Export" Command="{Binding ExportNetworkCommand}" />
+            <Button Margin="0,0,8,8" Classes="secondary" Content="{Binding RightDrawerButtonLabel}" Command="{Binding ToggleRightDrawerCommand}" />
           </WrapPanel>
         </Grid>
 
