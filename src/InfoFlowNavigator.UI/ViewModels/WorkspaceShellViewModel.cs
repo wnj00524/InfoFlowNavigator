@@ -28,7 +28,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private WorkbenchSectionItemViewModel? _selectedSection;
     private string? _lastNetworkExportPath;
     private bool _isRightDrawerOpen = true;
-    private bool _isInsightPulseOpen;
     private bool _isSpotlightComposerOpen;
     private SpotlightComposerMode _spotlightMode;
     private bool _isQuickCaptureExpanded;
@@ -57,7 +56,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         Sections = new ObservableCollection<WorkbenchSectionItemViewModel>
         {
-            new(WorkbenchSection.Overview, "Overview", "Case summary and guidance", "OV"),
             new(WorkbenchSection.Entities, "Entities", "People, organizations, and assets", "EN"),
             new(WorkbenchSection.Relationships, "Relationships", "How subjects are connected", "RE"),
             new(WorkbenchSection.Events, "Events", "Observed activity and chronology", "EV"),
@@ -69,7 +67,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         };
 
         Toasts = [];
-        InsightPulseItems = [];
 
         NewWorkspaceCommand = new RelayCommand(() => ExecuteSafely(CreateNewWorkspace));
         OpenWorkspaceCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(OpenWorkspaceAsync));
@@ -77,7 +74,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         ExportBriefingCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(ExportBriefingAsync));
         ExportNetworkCommand = new AsyncRelayCommand(() => ExecuteSafelyAsync(ExportNetworkAsync));
 
-        ShowOverviewCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Overview));
         ShowEntitiesCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Entities));
         ShowRelationshipsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Relationships));
         ShowEventsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Events));
@@ -88,7 +84,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         ShowFindingsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Findings));
 
         ToggleRightDrawerCommand = new RelayCommand(() => IsRightDrawerOpen = !IsRightDrawerOpen);
-        ToggleInsightPulseCommand = new RelayCommand(() => IsInsightPulseOpen = !IsInsightPulseOpen);
         OpenQuickCaptureCommand = new RelayCommand(() => IsQuickCaptureExpanded = true);
         CloseQuickCaptureCommand = new RelayCommand(() => IsQuickCaptureExpanded = false);
         BeginQuickAddEntityCommand = new RelayCommand(() => ExecuteSafely(BeginQuickAddEntity));
@@ -98,7 +93,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         BeginQuickAddEvidenceCommand = new RelayCommand(() => ExecuteSafely(BeginNewEvidence));
         CloseSpotlightComposerCommand = new RelayCommand(CloseSpotlightComposer);
 
-        Overview = new OverviewViewModel();
         Entities = new EntitiesViewModel(
             new RelayCommand(() => ExecuteSafely(AddEntity)),
             new RelayCommand(() => ExecuteSafely(UpdateSelectedEntity)),
@@ -144,7 +138,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         Findings = new FindingsViewModel();
 
         WorkspaceName = _workspace.Name;
-        SelectedSection = Sections[0];
+        SelectedSection = Sections.FirstOrDefault(section => section.Section == WorkbenchSection.Findings) ?? Sections[0];
         RefreshWorkspaceState();
     }
 
@@ -221,7 +215,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(CurrentSectionTitle));
                 OnPropertyChanged(nameof(CurrentSectionDescription));
-                OnPropertyChanged(nameof(IsOverviewMode));
                 OnPropertyChanged(nameof(IsEntitiesMode));
                 OnPropertyChanged(nameof(IsRelationshipsMode));
                 OnPropertyChanged(nameof(IsEventsMode));
@@ -237,9 +230,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         }
     }
 
-    public string CurrentSectionTitle => SelectedSection?.Title ?? "Overview";
-    public string CurrentSectionDescription => SelectedSection?.Description ?? "Case summary and guidance";
-    public bool IsOverviewMode => SelectedSection?.Section == WorkbenchSection.Overview;
+    public string CurrentSectionTitle => SelectedSection?.Title ?? "Findings";
+    public string CurrentSectionDescription => SelectedSection?.Description ?? "Explainable analysis guidance";
     public bool IsEntitiesMode => SelectedSection?.Section == WorkbenchSection.Entities;
     public bool IsRelationshipsMode => SelectedSection?.Section == WorkbenchSection.Relationships;
     public bool IsEventsMode => SelectedSection?.Section == WorkbenchSection.Events;
@@ -294,22 +286,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         set => SetProperty(ref _isQuickCaptureExpanded, value);
     }
 
-    public bool IsInsightPulseOpen
-    {
-        get => _isInsightPulseOpen;
-        set
-        {
-            if (SetProperty(ref _isInsightPulseOpen, value))
-            {
-                OnPropertyChanged(nameof(InsightPulseButtonLabel));
-                OnPropertyChanged(nameof(ShouldShowInsightPulse));
-            }
-        }
-    }
-
     public ObservableCollection<ShellToastViewModel> Toasts { get; }
-
-    public ObservableCollection<InsightPulseItemViewModel> InsightPulseItems { get; }
 
     public Guid? RecentlyChangedItemId
     {
@@ -323,12 +300,9 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         private set => SetProperty(ref _recentlyChangedItemKind, value);
     }
 
-    public bool HasInsightPulseItems => InsightPulseItems.Count > 0;
-    public bool ShouldShowInsightPulse => HasInsightPulseItems && IsInsightPulseOpen;
     public bool HasToasts => Toasts.Count > 0;
-    public bool IsInspectorVisible => IsRightDrawerOpen && !IsOverviewMode;
+    public bool IsInspectorVisible => IsRightDrawerOpen;
     public string RightDrawerButtonLabel => IsRightDrawerOpen ? "Hide Drawer" : "Show Drawer";
-    public string InsightPulseButtonLabel => IsInsightPulseOpen ? "Hide Pulse" : "Show Pulse";
 
     public string CurrentDrawerTitle =>
         SelectedSection?.Section switch
@@ -392,7 +366,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public bool IsRelationshipSpotlight => SpotlightMode == SpotlightComposerMode.Relationship;
     public bool IsEventParticipantSpotlight => SpotlightMode == SpotlightComposerMode.EventParticipant;
 
-    public OverviewViewModel Overview { get; }
     public EntitiesViewModel Entities { get; }
     public RelationshipsViewModel Relationships { get; }
     public EventsViewModel Events { get; }
@@ -406,7 +379,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public AsyncRelayCommand SaveWorkspaceCommand { get; }
     public AsyncRelayCommand ExportBriefingCommand { get; }
     public AsyncRelayCommand ExportNetworkCommand { get; }
-    public RelayCommand ShowOverviewCommand { get; }
     public RelayCommand ShowEntitiesCommand { get; }
     public RelayCommand ShowRelationshipsCommand { get; }
     public RelayCommand ShowEventsCommand { get; }
@@ -416,7 +388,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public RelayCommand ShowAssessmentsCommand { get; }
     public RelayCommand ShowFindingsCommand { get; }
     public RelayCommand ToggleRightDrawerCommand { get; }
-    public RelayCommand ToggleInsightPulseCommand { get; }
     public RelayCommand OpenQuickCaptureCommand { get; }
     public RelayCommand CloseQuickCaptureCommand { get; }
     public RelayCommand BeginQuickAddEntityCommand { get; }
@@ -1073,7 +1044,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         _analysis = _analysisService.SummarizeAsync(Workspace).GetAwaiter().GetResult();
 
-        Overview.Refresh(Workspace.Name, _analysis);
         Findings.Refresh(_analysis);
 
         var entityItems = Workspace.Entities
@@ -1167,8 +1137,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         RefreshEvidenceTargets(targetKind);
         Claims.UpdateTargets(BuildClaimTargetOptions(Claims.SelectedTargetKind?.Kind));
 
-        RefreshInsightPulseItems();
-
         OnPropertyChanged(nameof(WorkspaceEntityCount));
         OnPropertyChanged(nameof(WorkspaceRelationshipCount));
         OnPropertyChanged(nameof(WorkspaceEventCount));
@@ -1180,79 +1148,6 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         OnPropertyChanged(nameof(CurrentDrawerTitle));
         OnPropertyChanged(nameof(CurrentDrawerHint));
     }
-
-    private void RefreshInsightPulseItems()
-    {
-        var items = new List<InsightPulseItemViewModel>();
-
-        foreach (var finding in _analysis.Findings
-                     .OrderByDescending(item => item.PriorityScore)
-                     .Take(3))
-        {
-            items.Add(new InsightPulseItemViewModel(
-                finding.Title,
-                finding.Detail,
-                finding.Severity.ToString(),
-                ResolveTargetSection(finding),
-                true));
-        }
-
-        if (items.Count == 0 && WorkspaceEntityCount == 0)
-        {
-            items.Add(new InsightPulseItemViewModel(
-                "Start With Entities",
-                "Capture the primary people, organizations, and assets to anchor the workspace.",
-                "Info",
-                WorkbenchSection.Entities,
-                true));
-        }
-
-        if (items.Count < 3 && WorkspaceEventCount == 0 && WorkspaceClaimCount + WorkspaceEvidenceCount > 0)
-        {
-            items.Add(new InsightPulseItemViewModel(
-                "Build Chronology",
-                "There is evidence and narrative data but no dated events yet.",
-                "Warning",
-                WorkbenchSection.Events,
-                true));
-        }
-
-        if (items.Count < 3 && WorkspaceHypothesisCount == 0 && WorkspaceClaimCount > 0)
-        {
-            items.Add(new InsightPulseItemViewModel(
-                "Promote Claims Into Hypotheses",
-                "Working claims exist without explicit competing explanations.",
-                "Info",
-                WorkbenchSection.Hypotheses,
-                true));
-        }
-
-        ReplaceCollection(InsightPulseItems, items.Take(4).ToArray());
-        OnPropertyChanged(nameof(HasInsightPulseItems));
-        OnPropertyChanged(nameof(ShouldShowInsightPulse));
-        OnPropertyChanged(nameof(InsightPulseButtonLabel));
-    }
-
-    private static WorkbenchSection ResolveTargetSection(AnalysisFinding finding) =>
-        finding.TargetKind switch
-        {
-            "Entity" => WorkbenchSection.Entities,
-            "Relationship" => WorkbenchSection.Relationships,
-            "Event" => WorkbenchSection.Events,
-            "Claim" => WorkbenchSection.Claims,
-            "Hypothesis" => WorkbenchSection.Hypotheses,
-            "Evidence" => WorkbenchSection.Evidence,
-            _ => finding.Category switch
-            {
-                FindingCategory.SupportGap => WorkbenchSection.Assessments,
-                FindingCategory.Contradiction => WorkbenchSection.Claims,
-                FindingCategory.Timeline => WorkbenchSection.Events,
-                FindingCategory.Hypothesis => WorkbenchSection.Hypotheses,
-                FindingCategory.Collection => WorkbenchSection.Findings,
-                FindingCategory.Participation => WorkbenchSection.Events,
-                _ => WorkbenchSection.Overview
-            }
-        };
 
     private void RefreshEntityLinkedEvidence() =>
         Entities.UpdateLinkedEvidence(Entities.SelectedEntity is null

@@ -135,16 +135,6 @@
               <TextBlock Classes="page-title" Text="{Binding CurrentSectionTitle}" />
               <TextBlock Classes="muted" Text="{Binding CurrentSectionDescription}" TextWrapping="Wrap" />
               <TextBlock Classes="subtle" Text="{Binding StatusMessage}" TextWrapping="Wrap" />
-              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasInsightPulseItems}">
-                <Button Classes="secondary" Content="{Binding InsightPulseButtonLabel}" Command="{Binding ToggleInsightPulseCommand}" />
-                <TextBlock Classes="muted" VerticalAlignment="Center" Text="Surface ambient insights only when you need them." />
-              </StackPanel>
-              <Border Classes="shell-panel" Padding="12" IsVisible="{Binding ShouldShowInsightPulse}">
-                <StackPanel Spacing="8">
-                  <TextBlock Classes="label" Text="Insight Pulse" />
-                  <view:InsightPulseBar />
-                </StackPanel>
-              </Border>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Top">
@@ -161,39 +151,6 @@
         <Border Grid.Row="1" Classes="canvas-card" Padding="0">
           <ScrollViewer Padding="18">
             <Grid>
-              <StackPanel Spacing="18" IsVisible="{Binding IsOverviewMode}">
-                <Grid ColumnDefinitions="*,*,*,*,*" ColumnSpacing="12">
-                  <Border Classes="metric-card"><StackPanel><TextBlock Classes="label" Text="Entities" /><TextBlock FontSize="30" FontWeight="Bold" Text="{Binding Overview.EntityCount}" /></StackPanel></Border>
-                  <Border Grid.Column="1" Classes="metric-card"><StackPanel><TextBlock Classes="label" Text="Events" /><TextBlock FontSize="30" FontWeight="Bold" Text="{Binding Overview.EventCount}" /></StackPanel></Border>
-                  <Border Grid.Column="2" Classes="metric-card"><StackPanel><TextBlock Classes="label" Text="Claims" /><TextBlock FontSize="30" FontWeight="Bold" Text="{Binding WorkspaceClaimCount}" /></StackPanel></Border>
-                  <Border Grid.Column="3" Classes="metric-card"><StackPanel><TextBlock Classes="label" Text="Hypotheses" /><TextBlock FontSize="30" FontWeight="Bold" Text="{Binding Overview.HypothesisCount}" /></StackPanel></Border>
-                  <Border Grid.Column="4" Classes="metric-card"><StackPanel><TextBlock Classes="label" Text="Evidence" /><TextBlock FontSize="30" FontWeight="Bold" Text="{Binding Overview.EvidenceCount}" /></StackPanel></Border>
-                </Grid>
-
-                <Border Classes="shell-panel" Padding="18">
-                  <StackPanel Spacing="8">
-                    <TextBlock Classes="section-title" Text="{Binding Overview.WorkspaceName}" />
-                    <TextBlock Classes="muted" Text="{Binding Overview.KeyMessage}" TextWrapping="Wrap" />
-                  </StackPanel>
-                </Border>
-
-                <StackPanel Spacing="10">
-                  <TextBlock Classes="section-title" Text="Top Findings" />
-                  <ItemsControl ItemsSource="{Binding Overview.TopFindings}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="analysis:AnalysisFinding">
-                        <Border Classes="shell-panel" Margin="0,0,0,10" Padding="16">
-                          <StackPanel Spacing="6">
-                            <TextBlock Classes="label" Text="{Binding Title}" />
-                            <TextBlock Classes="muted" Text="{Binding Detail}" TextWrapping="Wrap" />
-                          </StackPanel>
-                        </Border>
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </StackPanel>
-              </StackPanel>
-
               <StackPanel Spacing="14" IsVisible="{Binding IsEntitiesMode}">
                 <Border Classes="shell-panel" Padding="14">
                   <StackPanel Spacing="10">
