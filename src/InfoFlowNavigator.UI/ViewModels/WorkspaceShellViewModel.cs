@@ -358,6 +358,16 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             _ => "Focused composition surface."
         };
 
+    public IReadOnlyList<InsightPulseItemViewModel> InsightPulseItems =>
+        Findings.TopPriorityFindings
+            .Select(finding => new InsightPulseItemViewModel(
+                finding.Title,
+                finding.Detail,
+                finding.Severity.ToString().ToUpperInvariant(),
+                ResolveInsightPulseSection(finding),
+                finding.TargetId.HasValue || !string.IsNullOrWhiteSpace(finding.TargetKind)))
+            .ToArray();
+
     public bool IsEntitySpotlight => SpotlightMode == SpotlightComposerMode.Entity;
     public bool IsEventSpotlight => SpotlightMode == SpotlightComposerMode.Event;
     public bool IsClaimSpotlight => SpotlightMode == SpotlightComposerMode.Claim;
@@ -1045,6 +1055,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         _analysis = _analysisService.SummarizeAsync(Workspace).GetAwaiter().GetResult();
 
         Findings.Refresh(_analysis);
+        OnPropertyChanged(nameof(InsightPulseItems));
 
         var entityItems = Workspace.Entities
             .OrderBy(entity => entity.Name, StringComparer.OrdinalIgnoreCase)
@@ -1435,6 +1446,19 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         var existing = existingIds.ToHashSet();
         return updatedIds.First(id => !existing.Contains(id));
     }
+
+    private static WorkbenchSection ResolveInsightPulseSection(AnalysisFinding finding) =>
+        finding.Category switch
+        {
+            FindingCategory.SupportGap => WorkbenchSection.Evidence,
+            FindingCategory.Contradiction => WorkbenchSection.Claims,
+            FindingCategory.Timeline => WorkbenchSection.Events,
+            FindingCategory.Hypothesis => WorkbenchSection.Hypotheses,
+            FindingCategory.Collection => WorkbenchSection.Evidence,
+            FindingCategory.Participation => WorkbenchSection.Events,
+            FindingCategory.NetworkExport => WorkbenchSection.Findings,
+            _ => WorkbenchSection.Findings
+        };
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)
     {
