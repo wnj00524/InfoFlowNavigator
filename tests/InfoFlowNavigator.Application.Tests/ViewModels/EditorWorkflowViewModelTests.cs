@@ -382,6 +382,30 @@ public sealed class EditorWorkflowViewModelTests
     }
 
     [Fact]
+    public void RelationshipsViewModel_SelectingTargetHidesSuggestionsWithoutClearingBackingItems()
+    {
+        var targetId = Guid.NewGuid();
+        var viewModel = new RelationshipsViewModel(new NoOpCommand(), new NoOpCommand(), _ => { });
+        viewModel.Refresh(
+            [],
+            [
+                new EntityOptionViewModel(Guid.NewGuid(), "Alice (Person)"),
+                new EntityOptionViewModel(targetId, "Contoso (Organization)")
+            ],
+            null,
+            null,
+            null);
+
+        viewModel.TargetPicker.SearchText = "Contoso";
+        viewModel.TargetPicker.SelectedItem = viewModel.TargetPicker.Suggestions[0];
+
+        Assert.Equal(targetId, viewModel.SelectedTarget?.Id);
+        Assert.Equal("Contoso (Organization)", viewModel.TargetPicker.SearchText);
+        Assert.False(viewModel.TargetPicker.HasSuggestions);
+        Assert.NotEmpty(viewModel.TargetPicker.Suggestions);
+    }
+
+    [Fact]
     public void EventSummaryViewModel_GroupsLinkedAttendeesInsideEventCard()
     {
         var summary = new EventSummaryViewModel(

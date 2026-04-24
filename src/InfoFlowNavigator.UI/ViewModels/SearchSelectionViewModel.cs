@@ -7,6 +7,7 @@ public sealed class SearchSelectionViewModel<T> : ViewModelBase
     private readonly Func<T, string> _displaySelector;
     private readonly Action<T?>? _selectionChanged;
     private readonly int _suggestionLimit;
+    private bool _areSuggestionsVisible;
     private bool _isUpdatingFromSelection;
     private string _searchText = string.Empty;
     private T? _selectedItem;
@@ -73,12 +74,14 @@ public sealed class SearchSelectionViewModel<T> : ViewModelBase
                 _isUpdatingFromSelection = false;
             }
 
-            ClearSuggestions();
+            // Keep the backing collection intact during ListBox selection; Avalonia may still read it
+            // while committing the selected index.
+            HideSuggestions();
             _selectionChanged?.Invoke(value);
         }
     }
 
-    public bool HasSuggestions => Suggestions.Count > 0;
+    public bool HasSuggestions => _areSuggestionsVisible && Suggestions.Count > 0;
 
     public void ReplaceItems(IReadOnlyList<T> items, T? selectedItem = default)
     {
@@ -136,17 +139,30 @@ public sealed class SearchSelectionViewModel<T> : ViewModelBase
         if (_selectedItem is not null &&
             string.Equals(_displaySelector(_selectedItem), SearchText, StringComparison.OrdinalIgnoreCase))
         {
-            ClearSuggestions();
+            HideSuggestions();
             return;
         }
 
         ReplaceCollection(Suggestions, filtered.Take(_suggestionLimit).ToArray());
-        OnPropertyChanged(nameof(HasSuggestions));
+        SetSuggestionsVisible(Suggestions.Count > 0);
     }
 
     private void ClearSuggestions()
     {
         Suggestions.Clear();
+        SetSuggestionsVisible(false);
+    }
+
+    private void HideSuggestions() => SetSuggestionsVisible(false);
+
+    private void SetSuggestionsVisible(bool value)
+    {
+        if (_areSuggestionsVisible == value)
+        {
+            return;
+        }
+
+        _areSuggestionsVisible = value;
         OnPropertyChanged(nameof(HasSuggestions));
     }
 

@@ -222,7 +222,8 @@ public sealed class EvidenceViewModel : EditorWorkflowViewModel
 
     public bool IsEmpty => EvidenceItems.Count == 0;
 
-    public IReadOnlyList<TargetOptionViewModel> FilteredTargets => TargetPicker.Suggestions.ToArray();
+    public IReadOnlyList<TargetOptionViewModel> FilteredTargets =>
+        TargetPicker.HasSuggestions ? TargetPicker.Suggestions.ToArray() : [];
 
     public string LinkHint => SelectedEvidence is null
         ? "Select an evidence item to add assessments."
