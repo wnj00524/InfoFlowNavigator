@@ -474,33 +474,12 @@ public sealed class WorkspaceApplicationServiceTests
     }
 
     [Fact]
-    public void InsightPulse_RefreshesAfterMutations()
+    public void ShellDefaultsToFindingsAndOmitsOverviewSection()
     {
         var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
 
-        Assert.False(viewModel.IsInsightPulseOpen);
-        Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Start With Entities");
-
-        viewModel.Claims.BeginNewClaimCommand.Execute(null);
-        viewModel.Claims.Statement = "A working claim.";
-        viewModel.Claims.SaveClaimCommand.Execute(null);
-
-        Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Build Chronology");
-        Assert.Contains(viewModel.InsightPulseItems, item => item.Title == "Promote Claims Into Hypotheses");
-    }
-
-    [Fact]
-    public void ToggleInsightPulseCommand_FlipsPulseVisibility()
-    {
-        var viewModel = CreateShellViewModel(new TrackingWorkspaceRepository(), new FakeWorkspaceFileDialogService());
-
-        Assert.False(viewModel.IsInsightPulseOpen);
-
-        viewModel.ToggleInsightPulseCommand.Execute(null);
-        Assert.True(viewModel.IsInsightPulseOpen);
-
-        viewModel.ToggleInsightPulseCommand.Execute(null);
-        Assert.False(viewModel.IsInsightPulseOpen);
+        Assert.True(viewModel.IsFindingsMode);
+        Assert.DoesNotContain(viewModel.Sections, section => section.Section == WorkbenchSection.Overview);
     }
 
     [Fact]
