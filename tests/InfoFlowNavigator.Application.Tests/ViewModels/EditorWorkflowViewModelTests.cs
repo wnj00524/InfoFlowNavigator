@@ -281,31 +281,38 @@ public sealed class EditorWorkflowViewModelTests
     }
 
     [Fact]
-    public void MainWindow_UsesTopRailAndHonestNewItemLabels()
+    public void MainWindow_UsesCompactTopShellAndCentralEditorWorkflow()
     {
         var xamlPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "InfoFlowNavigator.UI", "Views", "MainWindow.axaml");
         var xaml = File.ReadAllText(Path.GetFullPath(xamlPath));
 
+        Assert.Contains("Classes=\"hero-card\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Classes=\"top-rail nav-rail\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Add Entity...\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Classes=\"badge-pill\" Padding=\"10,6\"", xaml, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(xaml, "Content=\"New Hypothesis...\""));
         Assert.Contains("Content=\"New Event...\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"New Claim...\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"New Hypothesis...\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"New Evidence...\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TextBox Text=\"{Binding Hypotheses.Title}\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TextBox Text=\"{Binding Hypotheses.Statement}\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Hypothesis Details\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Title\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Statement\"", xaml, StringComparison.Ordinal);
         Assert.Contains("WindowDecorations=\"None\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("ColumnDefinitions=\"2.3*,1.2*,1*\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<WrapPanel />", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Claim Details\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Link Entities To Event\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"{Binding InsightPulseButtonLabel}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Assessment Workspace\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Evidence Selector\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("MinHeight=\"220\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("PlaceholderText=\"Search targets by name, type, or statement\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"New Assessment...\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("<view:SpotlightComposer", xaml, StringComparison.Ordinal);
-        Assert.Contains("<view:InsightPulseBar", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("<ComboBox", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Hypothesis Explorer\"", xaml, StringComparison.Ordinal);
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 
     [Fact]

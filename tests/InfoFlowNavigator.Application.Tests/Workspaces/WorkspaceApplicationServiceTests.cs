@@ -8,6 +8,7 @@ using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.Domain.Workspaces;
 using InfoFlowNavigator.UI.ViewModels;
+using System.IO;
 
 namespace InfoFlowNavigator.Application.Tests.Workspaces;
 
@@ -234,6 +235,17 @@ public sealed class WorkspaceApplicationServiceTests
         Assert.NotNull(viewModel.Events.SelectedEvent);
         Assert.Equal("Meeting", viewModel.Events.SelectedEvent!.Title);
         Assert.Equal("Save Event", viewModel.Events.PrimaryActionLabel);
+    }
+
+    [Fact]
+    public void MainWindow_HypothesisWorkflow_UsesSinglePrimaryCreateAction()
+    {
+        var xamlPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "InfoFlowNavigator.UI", "Views", "MainWindow.axaml");
+        var xaml = File.ReadAllText(Path.GetFullPath(xamlPath));
+
+        Assert.Equal(1, CountOccurrences(xaml, "Content=\"New Hypothesis...\""));
+        Assert.Contains("Text=\"Hypothesis Workspace\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TextBox Text=\"{Binding Hypotheses.Title}\"", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -860,6 +872,19 @@ public sealed class WorkspaceApplicationServiceTests
         }
 
         throw new TimeoutException("Timed out waiting for async command completion.");
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
     }
 
     private sealed class InMemoryWorkspaceRepository : IWorkspaceRepository
