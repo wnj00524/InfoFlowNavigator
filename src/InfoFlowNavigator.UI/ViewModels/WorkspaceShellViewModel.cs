@@ -6,6 +6,7 @@ using InfoFlowNavigator.Application.Abstractions;
 using InfoFlowNavigator.Application.Analysis;
 using InfoFlowNavigator.Application.Workspaces;
 using InfoFlowNavigator.Domain.Claims;
+using InfoFlowNavigator.Domain.Events;
 using InfoFlowNavigator.Domain.EvidenceLinks;
 using InfoFlowNavigator.Domain.Hypotheses;
 using InfoFlowNavigator.Domain.Workspaces;
@@ -27,6 +28,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private WorkbenchSectionItemViewModel? _selectedSection;
     private string? _lastNetworkExportPath;
     private bool _isRightDrawerOpen = true;
+    private bool _isInsightPulseOpen;
     private bool _isSpotlightComposerOpen;
     private SpotlightComposerMode _spotlightMode;
     private bool _isQuickCaptureExpanded;
@@ -61,7 +63,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             new(WorkbenchSection.Events, "Events", "Observed activity and chronology", "EV"),
             new(WorkbenchSection.Claims, "Claims", "First-class assertions and support", "CL"),
             new(WorkbenchSection.Hypotheses, "Hypotheses", "Competing explanations and inference", "HY"),
-            new(WorkbenchSection.Evidence, "Evidence", "Sources and structured assessments", "ED"),
+            new(WorkbenchSection.Evidence, "Evidence", "Sources and evidence capture", "ED"),
+            new(WorkbenchSection.Assessments, "Assessments", "Evaluate evidence against analytic targets", "AS"),
             new(WorkbenchSection.Findings, "Findings", "Explainable analysis guidance", "FI")
         };
 
@@ -81,9 +84,11 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         ShowClaimsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Claims));
         ShowHypothesesCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Hypotheses));
         ShowEvidenceCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Evidence));
+        ShowAssessmentsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Assessments));
         ShowFindingsCommand = new RelayCommand(() => SelectSection(WorkbenchSection.Findings));
 
         ToggleRightDrawerCommand = new RelayCommand(() => IsRightDrawerOpen = !IsRightDrawerOpen);
+        ToggleInsightPulseCommand = new RelayCommand(() => IsInsightPulseOpen = !IsInsightPulseOpen);
         OpenQuickCaptureCommand = new RelayCommand(() => IsQuickCaptureExpanded = true);
         CloseQuickCaptureCommand = new RelayCommand(() => IsQuickCaptureExpanded = false);
         BeginQuickAddEntityCommand = new RelayCommand(() => ExecuteSafely(BeginQuickAddEntity));
@@ -114,11 +119,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 RefreshEventLinkedEvidence();
                 RefreshEventParticipants();
             });
-        Claims = new ClaimsViewModel(
+        ClaimsViewModel? claimsViewModel = null;
+        claimsViewModel = new ClaimsViewModel(
             new RelayCommand(() => ExecuteSafely(BeginNewClaim)),
             new RelayCommand(() => ExecuteSafely(SaveClaim)),
             new RelayCommand(() => ExecuteSafely(DeleteSelectedClaim)),
-            _ => RefreshClaimLinkedEvidence());
+            _ => RefreshClaimLinkedEvidence(),
+            kind => claimsViewModel?.UpdateTargets(BuildClaimTargetOptions(kind)));
+        Claims = claimsViewModel;
         Hypotheses = new HypothesesViewModel(
             new RelayCommand(() => ExecuteSafely(BeginNewHypothesis)),
             new RelayCommand(() => ExecuteSafely(SaveHypothesis)),
@@ -220,6 +228,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 OnPropertyChanged(nameof(IsClaimsMode));
                 OnPropertyChanged(nameof(IsHypothesesMode));
                 OnPropertyChanged(nameof(IsEvidenceMode));
+                OnPropertyChanged(nameof(IsAssessmentsMode));
                 OnPropertyChanged(nameof(IsFindingsMode));
                 OnPropertyChanged(nameof(IsInspectorVisible));
                 OnPropertyChanged(nameof(CurrentDrawerTitle));
@@ -237,6 +246,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public bool IsClaimsMode => SelectedSection?.Section == WorkbenchSection.Claims;
     public bool IsHypothesesMode => SelectedSection?.Section == WorkbenchSection.Hypotheses;
     public bool IsEvidenceMode => SelectedSection?.Section == WorkbenchSection.Evidence;
+    public bool IsAssessmentsMode => SelectedSection?.Section == WorkbenchSection.Assessments;
     public bool IsFindingsMode => SelectedSection?.Section == WorkbenchSection.Findings;
 
     public bool IsRightDrawerOpen
@@ -284,6 +294,19 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         set => SetProperty(ref _isQuickCaptureExpanded, value);
     }
 
+    public bool IsInsightPulseOpen
+    {
+        get => _isInsightPulseOpen;
+        set
+        {
+            if (SetProperty(ref _isInsightPulseOpen, value))
+            {
+                OnPropertyChanged(nameof(InsightPulseButtonLabel));
+                OnPropertyChanged(nameof(ShouldShowInsightPulse));
+            }
+        }
+    }
+
     public ObservableCollection<ShellToastViewModel> Toasts { get; }
 
     public ObservableCollection<InsightPulseItemViewModel> InsightPulseItems { get; }
@@ -301,9 +324,11 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     }
 
     public bool HasInsightPulseItems => InsightPulseItems.Count > 0;
+    public bool ShouldShowInsightPulse => HasInsightPulseItems && IsInsightPulseOpen;
     public bool HasToasts => Toasts.Count > 0;
     public bool IsInspectorVisible => IsRightDrawerOpen && !IsOverviewMode;
     public string RightDrawerButtonLabel => IsRightDrawerOpen ? "Hide Drawer" : "Show Drawer";
+    public string InsightPulseButtonLabel => IsInsightPulseOpen ? "Hide Pulse" : "Show Pulse";
 
     public string CurrentDrawerTitle =>
         SelectedSection?.Section switch
@@ -314,6 +339,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             WorkbenchSection.Claims => Claims.EditorTitle,
             WorkbenchSection.Hypotheses => Hypotheses.EditorTitle,
             WorkbenchSection.Evidence => Evidence.EditorTitle,
+            WorkbenchSection.Assessments => "Evidence Assessments",
             WorkbenchSection.Findings => "Analysis Drawer",
             _ => "Inspector"
         };
@@ -327,6 +353,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             WorkbenchSection.Claims => Claims.EditorHint,
             WorkbenchSection.Hypotheses => Hypotheses.EditorHint,
             WorkbenchSection.Evidence => Evidence.EditorHint,
+            WorkbenchSection.Assessments => "Use the central editor to connect evidence to analytic targets.",
             WorkbenchSection.Findings => Findings.TopPrioritySummary,
             _ => "Context for the active section."
         };
@@ -386,8 +413,10 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     public RelayCommand ShowClaimsCommand { get; }
     public RelayCommand ShowHypothesesCommand { get; }
     public RelayCommand ShowEvidenceCommand { get; }
+    public RelayCommand ShowAssessmentsCommand { get; }
     public RelayCommand ShowFindingsCommand { get; }
     public RelayCommand ToggleRightDrawerCommand { get; }
+    public RelayCommand ToggleInsightPulseCommand { get; }
     public RelayCommand OpenQuickCaptureCommand { get; }
     public RelayCommand CloseQuickCaptureCommand { get; }
     public RelayCommand BeginQuickAddEntityCommand { get; }
@@ -666,13 +695,13 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         if (Events.SelectedParticipantEntity is null)
         {
-            SetStatus("Select a participant.");
+            SetStatus("Select an entity to link.");
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(Events.ParticipantRole))
+        if (Events.SelectedParticipantCategory?.Category == EventEntityLinkCategory.Other && string.IsNullOrWhiteSpace(Events.ParticipantRoleDetail))
         {
-            SetStatus("Participant role is required.");
+            SetStatus("Add a short detail for Other links.");
             return;
         }
 
@@ -683,16 +712,17 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                 Workspace,
                 Events.SelectedEvent.Id,
                 Events.SelectedParticipantEntity.Id,
-                Events.ParticipantRole,
+                Events.SelectedParticipantCategory?.Category ?? EventEntityLinkCategory.Participant,
+                Events.ParticipantRoleDetail,
                 confidence,
                 Events.ParticipantNotes);
             var createdParticipantId = FindAddedId(Workspace.EventParticipants.Select(item => item.Id), updatedWorkspace.EventParticipants.Select(item => item.Id));
             SetWorkspace(updatedWorkspace);
-            Events.ClearParticipantEditor();
+            Events.SelectedParticipant = Events.Participants.FirstOrDefault(item => item.Id == createdParticipantId);
             RegisterRecentChange(createdParticipantId, "Event Participant");
-            EnqueueToast("Participant Added", "Linked a participant to the selected event.", "Success", "Event Participant");
+            EnqueueToast("Event Link Added", "Linked an entity into the selected event.", "Success", "Event Participant");
             CloseSpotlightComposer();
-            SetTransientStatus("Added event participant.");
+            SetTransientStatus("Added event link.");
             return;
         }
 
@@ -700,12 +730,13 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         SetWorkspace(_workspaceService.UpdateEventParticipant(
             Workspace,
             participantId,
-            Events.ParticipantRole,
+            Events.SelectedParticipantCategory?.Category ?? EventEntityLinkCategory.Participant,
+            Events.ParticipantRoleDetail,
             confidence,
             Events.ParticipantNotes));
         RegisterRecentChange(participantId, "Event Participant");
-        EnqueueToast("Participant Updated", "Saved the selected event participant.", "Success", "Event Participant");
-        SetTransientStatus("Updated event participant.");
+        EnqueueToast("Event Link Updated", "Saved the selected event link.", "Success", "Event Participant");
+        SetTransientStatus("Updated event link.");
     }
 
     private void DeleteSelectedEventParticipant()
@@ -717,7 +748,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         SetWorkspace(_workspaceService.RemoveEventParticipant(Workspace, Events.SelectedParticipant.Id));
         Events.ClearParticipantEditor();
-        SetTransientStatus("Removed event participant.");
+        SetTransientStatus("Removed event link.");
     }
 
     private void BeginNewClaim()
@@ -862,16 +893,18 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
     private void BeginNewEvidenceAssessment()
     {
+        SelectSection(WorkbenchSection.Assessments);
+        Evidence.BeginNewAssessment();
+        IsQuickCaptureExpanded = false;
+        CloseSpotlightComposer();
+
         if (Evidence.SelectedEvidence is null)
         {
             SetStatus("Select an evidence item first.");
             return;
         }
 
-        SelectSection(WorkbenchSection.Evidence);
-        Evidence.BeginNewAssessment();
-        OpenSpotlight(SpotlightComposerMode.Evidence);
-        SetTransientStatus("Evidence assessment editor is ready.");
+        SetTransientStatus("Assessment editor is ready.");
     }
 
     private void SaveEvidence()
@@ -1066,6 +1099,20 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             .OrderBy(item => item.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
+        var entityTypeSuggestions = Workspace.Entities
+            .Select(entity => entity.EntityType)
+            .Where(type => !string.IsNullOrWhiteSpace(type))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(type => type, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var relationshipTypeSuggestions = Workspace.Relationships
+            .Select(relationship => relationship.RelationshipType)
+            .Where(type => !string.IsNullOrWhiteSpace(type))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(type => type, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         var eventItems = Workspace.Events
             .Select(@event => new EventSummaryViewModel(
                 @event.Id,
@@ -1101,6 +1148,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             .Select(evidence => new EvidenceSummaryViewModel(evidence.Id, evidence.Title, evidence.Citation, evidence.Notes, evidence.Confidence))
             .ToArray();
 
+        Entities.UpdateTypeSuggestions(entityTypeSuggestions);
+        Relationships.UpdateRelationshipTypeSuggestions(relationshipTypeSuggestions);
         Entities.Refresh(entityItems, selectedEntityId);
         Relationships.Refresh(relationshipItems, entityOptions, selectedRelationshipId, selectedSourceId, selectedTargetId);
         Events.Refresh(eventItems, selectedEventId);
@@ -1180,6 +1229,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
         ReplaceCollection(InsightPulseItems, items.Take(4).ToArray());
         OnPropertyChanged(nameof(HasInsightPulseItems));
+        OnPropertyChanged(nameof(ShouldShowInsightPulse));
+        OnPropertyChanged(nameof(InsightPulseButtonLabel));
     }
 
     private static WorkbenchSection ResolveTargetSection(AnalysisFinding finding) =>
@@ -1193,7 +1244,7 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
             "Evidence" => WorkbenchSection.Evidence,
             _ => finding.Category switch
             {
-                FindingCategory.SupportGap => WorkbenchSection.Findings,
+                FindingCategory.SupportGap => WorkbenchSection.Assessments,
                 FindingCategory.Contradiction => WorkbenchSection.Claims,
                 FindingCategory.Timeline => WorkbenchSection.Events,
                 FindingCategory.Hypothesis => WorkbenchSection.Hypotheses,
@@ -1232,7 +1283,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
                     participant.Id,
                     participant.EntityId,
                     ResolveEntityDisplayName(participant.EntityId),
-                    participant.Role,
+                    participant.Category,
+                    participant.RoleDetail,
                     participant.Confidence,
                     participant.Notes))
                 .ToArray(),
@@ -1242,11 +1294,12 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
     private IReadOnlyList<EventParticipantRoleGroupViewModel> BuildEventParticipantRoleGroups(Guid eventId) =>
         Workspace.EventParticipants
             .Where(participant => participant.EventId == eventId)
-            .GroupBy(participant => participant.Role.Trim(), StringComparer.OrdinalIgnoreCase)
-            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(participant => participant.Category)
+            .OrderBy(group => group.Key)
             .Select(group => new EventParticipantRoleGroupViewModel(
-                group.First().Role.Trim(),
-                group.Select(participant => ResolveEntityDisplayName(participant.EntityId))
+                group.Key,
+                EventParticipant.GetCategoryGroupTitle(group.Key),
+                group.Select(FormatEventParticipantGroupEntry)
                     .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                     .ToArray()))
             .ToArray();
@@ -1394,8 +1447,8 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
         new(EvidenceLinkTargetKind.Entity, "Entity"),
         new(EvidenceLinkTargetKind.Relationship, "Relationship"),
         new(EvidenceLinkTargetKind.Event, "Event"),
-        new(EvidenceLinkTargetKind.Hypothesis, "Hypothesis"),
-        new(EvidenceLinkTargetKind.Claim, "Claim")
+        new(EvidenceLinkTargetKind.Claim, "Claim"),
+        new(EvidenceLinkTargetKind.Hypothesis, "Hypothesis")
     ];
 
     private string ResolveEntityName(Guid entityId) =>
@@ -1403,6 +1456,14 @@ public sealed class WorkspaceShellViewModel : ViewModelBase
 
     private string ResolveEntityDisplayName(Guid entityId) =>
         Workspace.Entities.FirstOrDefault(entity => entity.Id == entityId)?.DisplayName() ?? entityId.ToString();
+
+    private string FormatEventParticipantGroupEntry(EventParticipant participant)
+    {
+        var entityDisplayName = ResolveEntityDisplayName(participant.EntityId);
+        return string.IsNullOrWhiteSpace(participant.RoleDetail)
+            ? entityDisplayName
+            : $"{entityDisplayName} ({participant.RoleDetail})";
+    }
 
     private string ResolveTargetDisplay(EvidenceLinkTargetKind targetKind, Guid targetId) =>
         targetKind switch

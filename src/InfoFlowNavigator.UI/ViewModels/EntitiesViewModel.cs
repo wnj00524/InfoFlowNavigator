@@ -5,14 +5,16 @@ namespace InfoFlowNavigator.UI.ViewModels;
 
 public sealed class EntitiesViewModel : ViewModelBase
 {
+    private const string DefaultEntityType = "Person";
     private readonly Action<EntitySummaryViewModel?> _selectionChanged;
     private string _newEntityName = string.Empty;
-    private string _newEntityType = "Person";
+    private string _newEntityType = DefaultEntityType;
     private EntitySummaryViewModel? _selectedEntity;
     private string _editorName = string.Empty;
     private string _editorType = string.Empty;
     private string _editorNotes = string.Empty;
     private string _editorConfidenceText = string.Empty;
+    private IReadOnlyList<string> _entityTypeSuggestions = [DefaultEntityType];
 
     public EntitiesViewModel(
         ICommand addEntityCommand,
@@ -29,6 +31,12 @@ public sealed class EntitiesViewModel : ViewModelBase
     public ObservableCollection<EntitySummaryViewModel> Entities { get; } = [];
 
     public ObservableCollection<LinkedEvidenceSummaryViewModel> LinkedEvidence { get; } = [];
+
+    public IReadOnlyList<string> EntityTypeSuggestions
+    {
+        get => _entityTypeSuggestions;
+        private set => SetProperty(ref _entityTypeSuggestions, value);
+    }
 
     public ICommand AddEntityCommand { get; }
 
@@ -119,8 +127,16 @@ public sealed class EntitiesViewModel : ViewModelBase
     public void ClearAddForm()
     {
         NewEntityName = string.Empty;
-        NewEntityType = "Person";
+        NewEntityType = DefaultEntityType;
     }
+
+    public void UpdateTypeSuggestions(IReadOnlyList<string> suggestions) =>
+        EntityTypeSuggestions = [.. suggestions
+            .Append(DefaultEntityType)
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => item, StringComparer.OrdinalIgnoreCase)];
 
     private void PopulateEditor(EntitySummaryViewModel? entity)
     {

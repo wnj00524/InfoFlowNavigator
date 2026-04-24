@@ -7,12 +7,9 @@ namespace InfoFlowNavigator.UI.ViewModels;
 public sealed class ClaimsViewModel : EditorWorkflowViewModel
 {
     private readonly Action<ClaimSummaryViewModel?> _selectionChanged;
+    private readonly Action<ClaimTargetKind?> _targetKindChanged;
+    private bool _isRefreshingEditor;
     private ClaimSummaryViewModel? _selectedClaim;
-    private ClaimTypeOptionViewModel? _selectedClaimType;
-    private ClaimStatusOptionViewModel? _selectedClaimStatus;
-    private ClaimTargetKindOptionViewModel? _selectedTargetKind;
-    private TargetOptionViewModel? _selectedTarget;
-    private HypothesisSummaryViewModel? _selectedHypothesis;
     private string _statement = string.Empty;
     private string _notes = string.Empty;
     private string _confidenceText = string.Empty;
@@ -21,12 +18,33 @@ public sealed class ClaimsViewModel : EditorWorkflowViewModel
         ICommand beginNewClaimCommand,
         ICommand saveClaimCommand,
         ICommand deleteClaimCommand,
-        Action<ClaimSummaryViewModel?> selectionChanged)
+        Action<ClaimSummaryViewModel?> selectionChanged,
+        Action<ClaimTargetKind?> targetKindChanged)
     {
         BeginNewClaimCommand = beginNewClaimCommand;
         SaveClaimCommand = saveClaimCommand;
         DeleteClaimCommand = deleteClaimCommand;
         _selectionChanged = selectionChanged;
+        _targetKindChanged = targetKindChanged;
+        ClaimTypePicker = new SearchSelectionViewModel<ClaimTypeOptionViewModel>(
+            item => item.DisplayName,
+            _ => OnPropertyChanged(nameof(SelectedClaimType)));
+        ClaimStatusPicker = new SearchSelectionViewModel<ClaimStatusOptionViewModel>(
+            item => item.DisplayName,
+            _ => OnPropertyChanged(nameof(SelectedClaimStatus)));
+        TargetKindPicker = new SearchSelectionViewModel<ClaimTargetKindOptionViewModel>(
+            item => item.DisplayName,
+            OnSelectedTargetKindChanged);
+        TargetPicker = new SearchSelectionViewModel<TargetOptionViewModel>(
+            item => item.DisplayName,
+            _ => OnPropertyChanged(nameof(SelectedTarget)));
+        HypothesisPicker = new SearchSelectionViewModel<HypothesisSummaryViewModel>(
+            item => item.Title,
+            _ => OnPropertyChanged(nameof(SelectedHypothesis)));
+
+        ClaimTypePicker.ReplaceItems(ClaimTypes, ClaimTypes[0]);
+        ClaimStatusPicker.ReplaceItems(ClaimStatuses, ClaimStatuses[0]);
+        TargetKindPicker.ReplaceItems(TargetKinds, TargetKinds[0]);
     }
 
     protected override string ItemTypeDisplayName => "Claim";
@@ -69,6 +87,16 @@ public sealed class ClaimsViewModel : EditorWorkflowViewModel
 
     public ObservableCollection<HypothesisSummaryViewModel> Hypotheses { get; } = [];
 
+    public SearchSelectionViewModel<ClaimTypeOptionViewModel> ClaimTypePicker { get; }
+
+    public SearchSelectionViewModel<ClaimStatusOptionViewModel> ClaimStatusPicker { get; }
+
+    public SearchSelectionViewModel<ClaimTargetKindOptionViewModel> TargetKindPicker { get; }
+
+    public SearchSelectionViewModel<TargetOptionViewModel> TargetPicker { get; }
+
+    public SearchSelectionViewModel<HypothesisSummaryViewModel> HypothesisPicker { get; }
+
     public ICommand BeginNewClaimCommand { get; }
 
     public ICommand SaveClaimCommand { get; }
@@ -83,44 +111,44 @@ public sealed class ClaimsViewModel : EditorWorkflowViewModel
 
     public ClaimTypeOptionViewModel? SelectedClaimType
     {
-        get => _selectedClaimType;
-        set => SetProperty(ref _selectedClaimType, value);
+        get => ClaimTypePicker.SelectedItem;
+        set => ClaimTypePicker.SelectedItem = value;
     }
 
     public ClaimStatusOptionViewModel? SelectedClaimStatus
     {
-        get => _selectedClaimStatus;
-        set => SetProperty(ref _selectedClaimStatus, value);
+        get => ClaimStatusPicker.SelectedItem;
+        set => ClaimStatusPicker.SelectedItem = value;
     }
 
     public ClaimTargetKindOptionViewModel? SelectedTargetKind
     {
-        get => _selectedTargetKind;
-        set
-        {
-            if (SetProperty(ref _selectedTargetKind, value))
-            {
-                SelectedTarget = null;
-            }
-        }
+        get => TargetKindPicker.SelectedItem;
+        set => TargetKindPicker.SelectedItem = value;
     }
 
     public TargetOptionViewModel? SelectedTarget
     {
-        get => _selectedTarget;
-        set => SetProperty(ref _selectedTarget, value);
+        get => TargetPicker.SelectedItem;
+        set => TargetPicker.SelectedItem = value;
     }
 
     public HypothesisSummaryViewModel? SelectedHypothesis
     {
-        get => _selectedHypothesis;
-        set => SetProperty(ref _selectedHypothesis, value);
+        get => HypothesisPicker.SelectedItem;
+        set => HypothesisPicker.SelectedItem = value;
     }
 
     public string Statement
     {
         get => _statement;
-        set => SetProperty(ref _statement, value);
+        set
+        {
+            if (SetProperty(ref _statement, value))
+            {
+                OnPropertyChanged(nameof(CanSaveClaim));
+            }
+        }
     }
 
     public string Notes
@@ -136,6 +164,8 @@ public sealed class ClaimsViewModel : EditorWorkflowViewModel
     }
 
     public bool IsEmpty => Claims.Count == 0;
+
+    public bool CanSaveClaim => !string.IsNullOrWhiteSpace(Statement);
 
     public void BeginNewClaim()
     {
@@ -153,6 +183,11 @@ public sealed class ClaimsViewModel : EditorWorkflowViewModel
         ReplaceCollection(Claims, claims.OrderBy(item => item.Statement, StringComparer.OrdinalIgnoreCase).ToArray());
         ReplaceCollection(Targets, targets);
         ReplaceCollection(Hypotheses, hypotheses);
+        ClaimTypePicker.ReplaceItems(ClaimTypes, SelectedClaimType ?? ClaimTypes[0]);
+        ClaimStatusPicker.ReplaceItems(ClaimStatuses, SelectedClaimStatus ?? ClaimStatuses[0]);
+        TargetKindPicker.ReplaceItems(TargetKinds, SelectedTargetKind ?? TargetKinds[0]);
+        TargetPicker.ReplaceItems(Targets, SelectedTarget);
+        HypothesisPicker.ReplaceItems(Hypotheses, SelectedHypothesis);
         SelectedClaim = selectedClaimId is null ? null : Claims.FirstOrDefault(item => item.Id == selectedClaimId);
         if (SelectedClaim is null)
         {
@@ -160,10 +195,18 @@ public sealed class ClaimsViewModel : EditorWorkflowViewModel
         }
 
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(CanSaveClaim));
     }
 
-    public void UpdateTargets(IReadOnlyList<TargetOptionViewModel> targets) =>
+    public void UpdateTargets(IReadOnlyList<TargetOptionViewModel> targets)
+    {
+        var selectedTargetId = SelectedTarget?.Id;
         ReplaceCollection(Targets, targets);
+        var resolvedTarget = selectedTargetId is null
+            ? Targets.FirstOrDefault()
+            : Targets.FirstOrDefault(item => item.Id == selectedTargetId) ?? Targets.FirstOrDefault();
+        TargetPicker.ReplaceItems(Targets, resolvedTarget);
+    }
 
     public void UpdateLinkedEvidence(IReadOnlyList<LinkedEvidenceSummaryViewModel> linkedEvidence) =>
         ReplaceCollection(LinkedEvidence, linkedEvidence);
@@ -176,26 +219,59 @@ public sealed class ClaimsViewModel : EditorWorkflowViewModel
             return;
         }
 
-        Statement = summary.Statement;
-        Notes = summary.Notes ?? string.Empty;
-        ConfidenceText = summary.Confidence?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
-        SelectedClaimType = ClaimTypes.FirstOrDefault(item => item.ClaimType == summary.ClaimType);
-        SelectedClaimStatus = ClaimStatuses.FirstOrDefault(item => item.Status == summary.Status);
-        SelectedTargetKind = TargetKinds.FirstOrDefault(item => item.Kind == summary.TargetKind) ?? TargetKinds[0];
-        SelectedTarget = summary.TargetId is null ? null : Targets.FirstOrDefault(item => item.Id == summary.TargetId);
-        SelectedHypothesis = summary.HypothesisId is null ? null : Hypotheses.FirstOrDefault(item => item.Id == summary.HypothesisId);
+        _isRefreshingEditor = true;
+        try
+        {
+            Statement = summary.Statement;
+            Notes = summary.Notes ?? string.Empty;
+            ConfidenceText = summary.Confidence?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+            SelectedClaimType = ClaimTypes.FirstOrDefault(item => item.ClaimType == summary.ClaimType);
+            SelectedClaimStatus = ClaimStatuses.FirstOrDefault(item => item.Status == summary.Status);
+            SelectedTargetKind = TargetKinds.FirstOrDefault(item => item.Kind == summary.TargetKind) ?? TargetKinds[0];
+            _targetKindChanged(SelectedTargetKind?.Kind);
+            SelectedTarget = summary.TargetId is null ? null : Targets.FirstOrDefault(item => item.Id == summary.TargetId);
+            SelectedHypothesis = summary.HypothesisId is null ? null : Hypotheses.FirstOrDefault(item => item.Id == summary.HypothesisId);
+        }
+        finally
+        {
+            _isRefreshingEditor = false;
+        }
     }
 
     private void ClearEditor()
     {
-        Statement = string.Empty;
-        Notes = string.Empty;
-        ConfidenceText = string.Empty;
-        SelectedClaimType = ClaimTypes[0];
-        SelectedClaimStatus = ClaimStatuses[0];
-        SelectedTargetKind = TargetKinds[0];
-        SelectedTarget = null;
-        SelectedHypothesis = null;
+        _isRefreshingEditor = true;
+        try
+        {
+            Statement = string.Empty;
+            Notes = string.Empty;
+            ConfidenceText = string.Empty;
+            SelectedClaimType = ClaimTypes[0];
+            SelectedClaimStatus = ClaimStatuses[0];
+            SelectedTargetKind = TargetKinds[0];
+            ReplaceCollection(Targets, []);
+            TargetPicker.ReplaceItems(Targets);
+            SelectedTarget = null;
+            HypothesisPicker.ReplaceItems(Hypotheses);
+            SelectedHypothesis = null;
+        }
+        finally
+        {
+            _isRefreshingEditor = false;
+        }
+
+        _targetKindChanged(SelectedTargetKind?.Kind);
+        OnPropertyChanged(nameof(CanSaveClaim));
+    }
+
+    private void OnSelectedTargetKindChanged(ClaimTargetKindOptionViewModel? value)
+    {
+        OnPropertyChanged(nameof(SelectedTargetKind));
+        TargetPicker.Clear();
+        if (!_isRefreshingEditor)
+        {
+            _targetKindChanged(value?.Kind);
+        }
     }
 
     private static void ReplaceCollection<T>(ObservableCollection<T> collection, IReadOnlyList<T> items)

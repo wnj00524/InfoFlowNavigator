@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:InfoFlowNavigator.UI.ViewModels"
+             xmlns:controls="using:InfoFlowNavigator.UI.Controls"
              x:Class="InfoFlowNavigator.UI.Views.SpotlightComposer"
              x:DataType="vm:WorkspaceShellViewModel">
   <UserControl.Styles>
@@ -30,7 +31,9 @@
             <TextBlock Classes="label" Text="Entity Name" />
             <TextBox Text="{Binding Entities.NewEntityName}" PlaceholderText="Person, organization, asset" />
             <TextBlock Classes="label" Text="Entity Type" />
-            <TextBox Text="{Binding Entities.NewEntityType}" PlaceholderText="Person" />
+            <controls:AutoCompleteTextBox Text="{Binding Entities.NewEntityType}"
+                                          Suggestions="{Binding Entities.EntityTypeSuggestions}"
+                                          PlaceholderText="Person" />
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
               <Button Content="Add Entity" Command="{Binding Entities.AddEntityCommand}" />
               <Button Grid.Column="1" Classes="secondary" Content="Cancel" Command="{Binding CloseSpotlightComposerCommand}" />

@@ -243,7 +243,7 @@ public sealed class AnalysisWorkspaceTests
 
         var duplicateAct = () => withParticipant.AddEventParticipant(EventParticipant.Create(@event.Id, entity.Id, "attendee", 0.6));
         var duplicateEx = Assert.Throws<InvalidOperationException>(duplicateAct);
-        Assert.Contains("same event, entity, and role", duplicateEx.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("same event, entity, category, and detail", duplicateEx.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

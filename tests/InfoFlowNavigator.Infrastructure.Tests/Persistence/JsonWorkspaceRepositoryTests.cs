@@ -41,13 +41,91 @@ public sealed class JsonWorkspaceRepositoryTests
             Assert.Single(reloaded.Hypotheses);
             Assert.Single(reloaded.Claims);
             Assert.Single(reloaded.EventParticipants);
+            Assert.Equal(EventEntityLinkCategory.Participant, reloaded.EventParticipants[0].Category);
             Assert.Equal(3, reloaded.EvidenceLinks.Count);
             Assert.Equal(EvidenceRelationToTarget.Supports, reloaded.EvidenceLinks[0].RelationToTarget);
             Assert.Contains("\"hypotheses\"", json, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("\"claims\"", json, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("\"eventParticipants\"", json, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("\"category\": \"Participant\"", json, StringComparison.Ordinal);
             Assert.Contains("\"relationToTarget\": \"Supports\"", json, StringComparison.Ordinal);
             Assert.Contains("\"strength\": \"Strong\"", json, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_LegacyRoleOnlyParticipantDocument_InfersStructuredCategory()
+    {
+        var repository = new JsonWorkspaceRepository();
+        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.ifn.json");
+        var workspaceId = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
+        var eventId = Guid.NewGuid();
+        var participantId = Guid.NewGuid();
+        var timestamp = DateTimeOffset.Parse("2026-04-22T10:15:00Z");
+
+        var json = $$"""
+        {
+          "schemaVersion": 1,
+          "id": "{{workspaceId}}",
+          "name": "Legacy Workspace",
+          "tags": [],
+          "createdAtUtc": "{{timestamp:O}}",
+          "updatedAtUtc": "{{timestamp:O}}",
+          "entities": [
+            {
+              "id": "{{entityId}}",
+              "name": "Transit Van",
+              "entityType": "Vehicle",
+              "tags": [],
+              "metadata": {},
+              "createdAtUtc": "{{timestamp:O}}",
+              "updatedAtUtc": "{{timestamp:O}}"
+            }
+          ],
+          "relationships": [],
+          "events": [
+            {
+              "id": "{{eventId}}",
+              "title": "Departure",
+              "tags": [],
+              "metadata": {},
+              "createdAtUtc": "{{timestamp:O}}",
+              "updatedAtUtc": "{{timestamp:O}}"
+            }
+          ],
+          "eventParticipants": [
+            {
+              "id": "{{participantId}}",
+              "eventId": "{{eventId}}",
+              "entityId": "{{entityId}}",
+              "role": "vehicle",
+              "createdAtUtc": "{{timestamp:O}}",
+              "updatedAtUtc": "{{timestamp:O}}"
+            }
+          ],
+          "claims": [],
+          "hypotheses": [],
+          "evidence": [],
+          "evidenceLinks": []
+        }
+        """;
+
+        try
+        {
+            await File.WriteAllTextAsync(path, json);
+            var loaded = await repository.LoadAsync(path);
+
+            Assert.Single(loaded.EventParticipants);
+            Assert.Equal(EventEntityLinkCategory.Vehicle, loaded.EventParticipants[0].Category);
+            Assert.Null(loaded.EventParticipants[0].RoleDetail);
         }
         finally
         {
